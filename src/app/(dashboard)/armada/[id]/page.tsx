@@ -186,7 +186,7 @@ export default function DetailArmadaPage() {
                     {formatDate(armada.jatuh_tempo_pajak_1_tahun)}
                   </p>
                   {pajak1TahunWarning && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444', fontSize: 12, marginTop: 4, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 4, display: 'inline-flex' }}>
+                    <div style={{ alignItems: 'center', gap: 4, color: '#ef4444', fontSize: 12, marginTop: 4, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 4, display: 'inline-flex' }}>
                       <AlertCircle size={12} /> {daysPajak1Tahun === 0 ? 'Hari ini!' : `Sisa ${daysPajak1Tahun} hari`}
                     </div>
                   )}
@@ -206,7 +206,7 @@ export default function DetailArmadaPage() {
                     {formatDate(armada.jatuh_tempo_plat_5_tahun)}
                   </p>
                   {pajak5TahunWarning && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444', fontSize: 12, marginTop: 4, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 4, display: 'inline-flex' }}>
+                    <div style={{ alignItems: 'center', gap: 4, color: '#ef4444', fontSize: 12, marginTop: 4, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 4, display: 'inline-flex' }}>
                       <AlertCircle size={12} /> {daysPajak5Tahun === 0 ? 'Hari ini!' : `Sisa ${daysPajak5Tahun} hari`}
                     </div>
                   )}
