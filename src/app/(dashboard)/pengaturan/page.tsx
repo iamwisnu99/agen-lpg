@@ -6,7 +6,7 @@ import { logAktivitas } from '@/lib/db'
 import type { Profile } from '@/types'
 import {
   User, Save, Loader2, Key, Shield,
-  Building2, AlertTriangle, Download,
+  Building2, AlertTriangle, Download, Info
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getInitials } from '@/lib/utils'
@@ -17,21 +17,6 @@ const SISTEM_DEFAULTS = {
   wilayah_kerja: '',
 }
 
-function getSystemSettings() {
-  if (typeof window === 'undefined') return SISTEM_DEFAULTS
-  return {
-    nama_agen:    localStorage.getItem('sys_nama_agen')    ?? '',
-    sold_to:      localStorage.getItem('sys_sold_to')      ?? '',
-    wilayah_kerja: localStorage.getItem('sys_wilayah_kerja') ?? '',
-  }
-}
-
-function saveSystemSettings(s: typeof SISTEM_DEFAULTS) {
-  localStorage.setItem('sys_nama_agen',     s.nama_agen)
-  localStorage.setItem('sys_sold_to',       s.sold_to)
-  localStorage.setItem('sys_wilayah_kerja', s.wilayah_kerja)
-}
-
 export default function PengaturanPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,7 +24,7 @@ export default function PengaturanPage() {
   const [form, setForm] = useState({ full_name: '', phone: '' })
   const [passwordForm, setPasswordForm] = useState({ newPass: '', confirm: '' })
   const [changingPassword, setChangingPassword] = useState(false)
-  const [activeTab, setActiveTab] = useState<'profil' | 'sistem' | 'keamanan'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'sistem' | 'info'>('profil')
   const [sistemForm, setSistemForm] = useState(SISTEM_DEFAULTS)
   const [savingSistem, setSavingSistem] = useState(false)
   const supabase = createClient()
@@ -48,19 +33,40 @@ export default function PengaturanPage() {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single()
-      if (data) {
-        setProfile(data)
-        setForm({ full_name: data.full_name || '', phone: data.phone || '' })
+
+      let userFullName = profileData?.full_name || user.user_metadata?.full_name || ''
+      const userEmail = user.email || profileData?.email || ''
+      const userPhone = profileData?.phone || ''
+
+      // Fallback: Jika masih kosong, ambil dari tabel agen_account via Server Action (Aman dari RLS/Key Error)
+      if (userEmail) {
+        const fallbackData = await getFallbackProfileData(userEmail)
+        if (fallbackData) {
+          if (!userFullName) userFullName = fallbackData.nama_lengkap
+          
+          setSistemForm({
+            nama_agen: fallbackData.nama_agen || '',
+            sold_to: fallbackData.sold_to || '',
+            wilayah_kerja: fallbackData.wilayah || '',
+          })
+        }
       }
+
+      setProfile({
+        id: user.id,
+        full_name: userFullName,
+        email: userEmail,
+        phone: userPhone,
+      })
+      setForm({ full_name: userFullName, phone: userPhone })
       setLoading(false)
     }
     fetchProfile()
-    setSistemForm(getSystemSettings())
   }, [])
 
   const handleSaveProfile = async () => {
@@ -104,19 +110,27 @@ export default function PengaturanPage() {
     }
   }
 
-  const handleSaveSistem = () => {
+  const handleSaveSistem = async () => {
+    if (!profile?.email) return
     setSavingSistem(true)
-    setTimeout(() => {
-      saveSystemSettings(sistemForm)
+    const success = await saveSystemSettingsData(profile.email, {
+      nama_agen: sistemForm.nama_agen,
+      sold_to: sistemForm.sold_to,
+      wilayah: sistemForm.wilayah_kerja,
+    })
+    
+    if (success) {
       toast.success('Pengaturan sistem berhasil disimpan')
-      setSavingSistem(false)
-    }, 500)
+    } else {
+      toast.error('Gagal menyimpan pengaturan sistem')
+    }
+    setSavingSistem(false)
   }
 
   const tabs = [
     { key: 'profil'   as const, label: 'Profil Admin', icon: User },
-    { key: 'keamanan' as const, label: 'Keamanan',     icon: Shield },
     { key: 'sistem'   as const, label: 'Sistem',       icon: Building2 },
+    { key: 'info'     as const, label: 'Info Website', icon: Info },
   ]
 
   const unset = (val: string) => !val.trim()
@@ -250,36 +264,58 @@ export default function PengaturanPage() {
         </div>
       )}
 
-      {/* ── TAB: Keamanan ── */}
-      {activeTab === 'keamanan' && (
-        <div className="card animate-fade-in">
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20 }}>
-            Ubah Password
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label className="form-label">Password Baru</label>
-              <input
-                type="password" className="form-input"
-                value={passwordForm.newPass}
-                onChange={e => setPasswordForm(f => ({ ...f, newPass: e.target.value }))}
-                placeholder="Minimal 8 karakter"
-              />
+      {/* ── TAB: Info Website ── */}
+      {activeTab === 'info' && (
+        <div className="card animate-fade-in" style={{ padding: 40, textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: 20,
+              background: 'var(--bg-surface)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+              border: '1px solid var(--border-default)', overflow: 'hidden'
+            }}>
+              <img src="/icons/favicon-96x96.png" alt="Logo LPG" style={{ width: 64, height: 64, objectFit: 'contain' }} />
             </div>
-            <div>
-              <label className="form-label">Konfirmasi Password Baru</label>
-              <input
-                type="password" className="form-input"
-                value={passwordForm.confirm}
-                onChange={e => setPasswordForm(f => ({ ...f, confirm: e.target.value }))}
-                placeholder="Ulangi password baru"
-              />
+            
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--border-default)' }}>&times;</span>
+            </div>
+
+            <div style={{
+              width: 80, height: 80, borderRadius: 20,
+              background: 'var(--bg-surface)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+              border: '1px solid var(--border-default)', overflow: 'hidden'
+            }}>
+              <img src="/primadev.png" alt="Primadev Logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
             </div>
           </div>
-          <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleChangePassword} disabled={changingPassword}>
-              {changingPassword ? <><Loader2 size={16} className="animate-spin" /> Mengubah...</> : <><Key size={16} /> Ubah Password</>}
-            </button>
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Sistem Informasi Agen LPG
+          </h2>
+          <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 32, maxWidth: 400, margin: '0 auto 32px' }}>
+            Aplikasi modern untuk mempermudah operasional dan manajemen Agen LPG beserta Pangkalannya.
+          </p>
+          
+          <div style={{
+            background: 'var(--bg-muted)', padding: 24, borderRadius: 16,
+            display: 'inline-block', textAlign: 'left', minWidth: 300
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Dibuat Oleh:</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', marginBottom: 16 }}>PT Primadev Digital Technology</div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Versi</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>v1.0.0</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Lisensi</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>Enterprise</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

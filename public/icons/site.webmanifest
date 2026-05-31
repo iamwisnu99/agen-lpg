@@ -1,18 +1,19 @@
 {
   "name": "Agen LPG by PrimaDev",
   "short_name": "Agen LPG",
+  "start_url": "/",
   "icons": [
     {
-      "src": "/public/icons/web-app-manifest-192x192.png",
+      "src": "/icons/web-app-manifest-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "maskable any"
     },
     {
-      "src": "/public/icons/web-app-manifest-512x512.png",
+      "src": "/icons/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "maskable any"
     }
   ],
   "theme_color": "#ffffff",

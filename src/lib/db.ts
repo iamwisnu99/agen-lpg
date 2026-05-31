@@ -13,6 +13,8 @@ export async function getPangkalanList(filters?: {
   foto_lengkap?: boolean
   search?: string
 }) {
+  const { data: { user } } = await supabase.auth.getUser()
+
   let query = supabase
     .from('pangkalan')
     .select(`
@@ -20,6 +22,10 @@ export async function getPangkalanList(filters?: {
       foto_pangkalan (*)
     `)
     .order('created_at', { ascending: false })
+
+  if (user) {
+    query = query.eq('created_by', user.id)
+  }
 
   if (filters?.status && filters.status !== 'semua') {
     query = query.eq('status', filters.status)
@@ -170,10 +176,18 @@ export async function deleteFoto(foto: FotoPangkalan) {
 // ============================================================
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const { data: pangkalanData, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let query = supabase
     .from('pangkalan')
     .select('id, status, foto_lengkap, kecamatan, nama_pangkalan, nama_pemilik, created_at, nomor_hp, latitude, longitude')
     .order('created_at', { ascending: false })
+
+  if (user) {
+    query = query.eq('created_by', user.id)
+  }
+
+  const { data: pangkalanData, error } = await query
 
   if (error) throw error
 
@@ -237,12 +251,105 @@ export async function logAktivitas(data: {
   })
 }
 
+// ============================================================
+// ARMADA
+// ============================================================
+
+import type { Armada } from '@/types'
+
+export async function getArmadaList(filters?: {
+  status?: string
+  search?: string
+}): Promise<Armada[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let query = supabase
+    .from('armada')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (user) {
+    query = query.eq('created_by', user.id)
+  }
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters?.search) {
+    query = query.or(`no_plat.ilike.%${filters.search}%,nama_sopir.ilike.%${filters.search}%`)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data as Armada[]
+}
+
+export async function getArmadaById(id: string): Promise<Armada | null> {
+  const { data, error } = await supabase
+    .from('armada')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return data as Armada | null
+}
+
+export async function deleteArmada(id: string) {
+  const { error } = await supabase
+    .from('armada')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export async function uploadArmadaFoto(
+  armadaId: string,
+  file: File,
+  noPlat: string
+): Promise<string> {
+  const fileName = `armada/${armadaId}_${Date.now()}.jpg`
+  
+  // Upload to storage (menggunakan bucket foto-pangkalan)
+  const { error: uploadError } = await supabase.storage
+    .from('foto-pangkalan')
+    .upload(fileName, file, { upsert: true })
+
+  if (uploadError) throw uploadError
+
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('foto-pangkalan')
+    .getPublicUrl(fileName)
+
+  // Update table armada
+  const { error: updateError } = await supabase
+    .from('armada')
+    .update({ foto_kendaraan: publicUrl })
+    .eq('id', armadaId)
+
+  if (updateError) throw updateError
+
+  return publicUrl
+}
+
 export async function getLogAktivitas(limit = 50, offset = 0) {
-  const { data, error, count } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let query = supabase
     .from('log_aktivitas')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
+
+  if (user) {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error, count } = await query
 
   if (error) throw error
   return { data: data as LogAktivitas[], count: count || 0 }

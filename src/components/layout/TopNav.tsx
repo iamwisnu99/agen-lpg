@@ -2,8 +2,10 @@
 
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { Sun, Moon, Bell, AlertTriangle, Menu, User, LogOut } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getArmadaList } from '@/lib/db'
+import { getDaysRemaining } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -16,12 +18,15 @@ export function TopNav({ onMenuClick }: TopNavProps) {
   const [showNotif, setShowNotif] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [incompleteCount, setIncompleteCount] = useState(0)
+  const [expiringArmadaCount, setExpiringArmadaCount] = useState(0)
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const supabase = createClient()
   const router = useRouter()
+  
+  const totalNotif = incompleteCount + expiringArmadaCount
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -46,7 +51,23 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         .eq('status', 'aktif')
       setIncompleteCount(count || 0)
     }
+    
+    const fetchArmada = async () => {
+      try {
+        const armadas = await getArmadaList({ status: 'aktif' })
+        const count = armadas.filter(a => {
+          if (!a.jatuh_tempo_pajak_1_tahun) return false
+          const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
+          return days >= 0 && days <= 30
+        }).length
+        setExpiringArmadaCount(count)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
     fetchIncomplete()
+    fetchArmada()
   }, [])
 
   const handleLogout = async () => {
@@ -81,7 +102,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             title="Notifikasi"
           >
             <Bell size={20} />
-            {incompleteCount > 0 && (
+            {totalNotif > 0 && (
               <span
                 className="absolute"
                 style={{
@@ -109,23 +130,47 @@ export function TopNav({ onMenuClick }: TopNavProps) {
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
                 Notifikasi
               </div>
-              {incompleteCount > 0 ? (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px',
-                  background: 'rgba(245,158,11,0.08)',
-                  borderRadius: 10,
-                  border: '1px solid rgba(245,158,11,0.2)',
-                }}>
-                  <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#d97706' }}>
-                      {incompleteCount} Pangkalan Belum Lengkap
+              {totalNotif > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {incompleteCount > 0 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px',
+                      background: 'rgba(245,158,11,0.08)',
+                      borderRadius: 10,
+                      border: '1px solid rgba(245,158,11,0.2)',
+                    }}>
+                      <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#d97706' }}>
+                          {incompleteCount} Pangkalan Belum Lengkap
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                          Dokumen foto belum lengkap
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                      Dokumen foto belum lengkap
+                  )}
+
+                  {expiringArmadaCount > 0 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px',
+                      background: 'rgba(239,68,68,0.08)',
+                      borderRadius: 10,
+                      border: '1px solid rgba(239,68,68,0.2)',
+                    }}>
+                      <AlertTriangle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>
+                          {expiringArmadaCount} Pajak Armada Habis
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                          Segera lakukan perpanjangan
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>

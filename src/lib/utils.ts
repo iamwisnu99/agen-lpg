@@ -108,3 +108,15 @@ export function getInitials(name: string): string {
 export function isValidCoord(lat: number, lng: number): boolean {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
 }
+
+export function getDaysRemaining(targetDate: string | Date): number {
+  const target = new Date(targetDate)
+  const now = new Date()
+  
+  // Normalize times to midnight
+  target.setHours(0, 0, 0, 0)
+  now.setHours(0, 0, 0, 0)
+  
+  const diffTime = target.getTime() - now.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}

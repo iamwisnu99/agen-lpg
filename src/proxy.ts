@@ -33,7 +33,12 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
+  // Auth pages (no auth required)
+  const isAuthPage =
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/register')
+
+  // Protected dashboard routes
   const isDashboard =
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/pangkalan') ||
@@ -41,12 +46,14 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/aktivitas') ||
     request.nextUrl.pathname.startsWith('/pengaturan')
 
+  // Redirect unauthenticated users away from protected routes
   if (!user && isDashboard) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
+  // Redirect authenticated users away from login/register
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/'

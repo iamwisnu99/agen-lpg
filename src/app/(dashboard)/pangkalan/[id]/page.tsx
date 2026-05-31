@@ -228,7 +228,7 @@ export default function DetailPangkalanPage() {
                   Alamat Lengkap
                 </div>
                 <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
-                  {pangkalan.alamat}, {pangkalan.kelurahan}, {pangkalan.kecamatan}, {pangkalan.kota}, {pangkalan.provinsi}
+                  {pangkalan.alamat}
                 </div>
               </div>
               {pangkalan.catatan_admin && (

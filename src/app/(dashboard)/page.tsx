@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getDashboardStats } from '@/lib/db'
+import { getDashboardStats, getArmadaList } from '@/lib/db'
 import type { DashboardStats } from '@/types'
 import {
   Building2,
@@ -13,8 +13,9 @@ import {
   RefreshCw,
   Plus,
   ChevronRight,
+  Truck,
 } from 'lucide-react'
-import { formatTimeAgo } from '@/lib/utils'
+import { formatTimeAgo, getDaysRemaining } from '@/lib/utils'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
@@ -74,6 +75,7 @@ function StatCard({
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [armada, setArmada] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -81,6 +83,8 @@ export default function DashboardPage() {
     try {
       const data = await getDashboardStats()
       setStats(data)
+      const armadaData = await getArmadaList()
+      setArmada(armadaData)
     } catch (err) {
       console.error(err)
     } finally {
@@ -170,6 +174,49 @@ export default function DashboardPage() {
           loading={loading}
         />
       </div>
+
+      {/* Armada Tax Warnings Widget */}
+      {!loading && armada.length > 0 && (() => {
+        const expiring = armada.filter(a => {
+          if (!a.jatuh_tempo_pajak_1_tahun) return false
+          const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
+          return days >= 0 && days <= 30
+        })
+
+        if (expiring.length === 0) return null
+
+        return (
+          <div className="card" style={{ marginBottom: 24, borderLeft: '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Truck size={20} color="#ef4444" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Peringatan Pajak Armada
+                  <span className="badge badge-red" style={{ padding: '2px 8px', fontSize: 11, animation: 'pulse 2s infinite' }}>{expiring.length} Kendaraan</span>
+                </h3>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Pajak kendaraan akan segera habis dalam kurang dari 30 hari.</p>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+              {expiring.map(a => {
+                const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
+                return (
+                  <Link key={a.id} href={`/armada/${a.id}`} style={{ flex: '0 0 auto', width: 240, border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, background: 'var(--bg-surface)', textDecoration: 'none' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{a.no_plat}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Sopir: {a.nama_sopir}</div>
+                    <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <AlertTriangle size={12} /> {days === 0 ? 'Habis hari ini!' : `Sisa ${days} hari`}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Completion Progress */}
       {!loading && stats && (

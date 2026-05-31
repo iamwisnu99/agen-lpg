@@ -11,11 +11,13 @@ import {
   Settings,
   LogOut,
   User,
+  Truck,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { getFallbackProfileData } from '@/app/actions'
 
 interface NavItem {
   label: string
@@ -27,6 +29,7 @@ const navItems: NavItem[] = [
   { label: 'Dashboard',      href: '/',           icon: LayoutDashboard },
   { label: 'Peta Monitoring', href: '/peta',       icon: MapPin },
   { label: 'Data Pangkalan', href: '/pangkalan',   icon: Building2 },
+  { label: 'Data Armada',    href: '/armada',      icon: Truck },
   { label: 'Log Aktivitas',  href: '/aktivitas',  icon: ClipboardList },
   { label: 'Pengaturan',     href: '/pengaturan', icon: Settings },
 ]
@@ -47,19 +50,31 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setNamaAgen(localStorage.getItem('sys_nama_agen') || '')
-      setSoldTo(localStorage.getItem('sys_sold_to') || '')
-    }
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        // Fetch profiles for full name
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
           .eq('id', user.id)
           .single()
-        setUserName(profile?.full_name || user.email || 'Admin')
+        
+        let fetchedUserName = profile?.full_name || user.email || 'Admin'
+
+        // Fetch agen_account for system settings (sold to, nama agen)
+        if (user.email) {
+          const agenData = await getFallbackProfileData(user.email)
+          if (agenData) {
+            setNamaAgen(agenData.nama_agen || '')
+            setSoldTo(agenData.sold_to || '')
+            if (profile?.full_name == null && agenData.nama_lengkap) {
+              fetchedUserName = agenData.nama_lengkap
+            }
+          }
+        }
+        
+        setUserName(fetchedUserName)
       }
     }
     fetchUser()
@@ -88,7 +103,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         </div>
         <div style={{ textAlign: 'center', width: '100%' }}>
           <div className="text-sm font-bold" style={{ color: 'var(--text-primary)', lineHeight: 1.5, wordWrap: 'break-word' }}>
-            {soldTo || 'Agen LPG'}
+            {soldTo ? `Sold To - ${soldTo}` : 'Agen LPG'}
           </div>
           {namaAgen && (
             <div className="text-xs font-medium mt-1" style={{ color: 'var(--text-muted)', wordWrap: 'break-word' }}>
@@ -102,7 +117,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       <nav className="sidebar-nav">
         <div className="nav-section-label">Menu Utama</div>
 
-        {navItems.slice(0, 4).map((item) => {
+        {navItems.slice(0, 5).map((item) => {
           const Icon = item.icon
           return (
             <Link

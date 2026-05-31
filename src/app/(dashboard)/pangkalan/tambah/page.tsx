@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
+import { CustomSelect } from '@/components/CustomSelect'
 
 const LocationPickerDynamic = dynamic(
   () => import('@/components/maps/LocationPicker').then(m => ({ default: m.LocationPicker })),
@@ -25,8 +26,8 @@ const PhotoUploadDynamic = dynamic(
 )
 
 const STEPS = [
-  { label: 'Identitas', icon: Building2 },
   { label: 'Lokasi', icon: MapPin },
+  { label: 'Identitas', icon: Building2 },
   { label: 'Foto', icon: CheckCircle2 },
 ]
 
@@ -80,7 +81,10 @@ export default function TambahPangkalanPage() {
         .select('kelurahan')
         .eq('kecamatan', form.kecamatan)
         .order('kelurahan')
-      if (data) setKelurahanList(data.map(w => w.kelurahan))
+      if (data) {
+        const unique = [...new Set(data.map(w => w.kelurahan))]
+        setKelurahanList(unique)
+      }
     }
     fetchKelurahan()
   }, [form.kecamatan])
@@ -88,6 +92,31 @@ export default function TambahPangkalanPage() {
   const update = (field: keyof PangkalanFormData, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
+  }
+
+  const handleAddressFound = (data: any) => {
+    const kelurahan = data.village || data.suburb || data.neighbourhood || ''
+    const kecamatan = data.county || data.city_district || data.town || data.municipality || ''
+    const kota = data.city || data.region || data.state_district || ''
+    const provinsi = data.state || ''
+    const alamat = data.full || ''
+
+    setForm(prev => ({
+      ...prev,
+      kelurahan: kelurahan || prev.kelurahan,
+      kecamatan: kecamatan || prev.kecamatan,
+      kota: kota || prev.kota,
+      provinsi: provinsi || prev.provinsi,
+      alamat: alamat || prev.alamat,
+    }))
+  }
+
+  const validateStep0 = () => {
+    const e: Partial<Record<keyof PangkalanFormData, string>> = {}
+    if (!form.latitude || !form.longitude) e.latitude = 'Lokasi wajib dipilih dari peta'
+    setErrors(e)
+    if (Object.keys(e).length > 0) toast.error('Pilih lokasi di peta terlebih dahulu')
+    return Object.keys(e).length === 0
   }
 
   const validateStep1 = () => {
@@ -100,15 +129,17 @@ export default function TambahPangkalanPage() {
     if (!form.kecamatan) e.kecamatan = 'Pilih kecamatan'
     if (!form.kelurahan) e.kelurahan = 'Pilih kelurahan'
     setErrors(e)
+    if (Object.keys(e).length > 0) toast.error('Mohon lengkapi semua kolom yang wajib diisi')
     return Object.keys(e).length === 0
   }
 
   const handleNext = () => {
-    if (step === 0 && !validateStep1()) return
+    if (step === 0 && !validateStep0()) return
     setStep(s => s + 1)
   }
 
   const handleSave = async () => {
+    if (!validateStep1()) return
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -203,8 +234,28 @@ export default function TambahPangkalanPage() {
       {/* Card */}
       <div className="card">
 
-        {/* ── Step 1: Identitas ── */}
+        {/* ── Step 0: Lokasi ── */}
         {step === 0 && (
+          <div className="animate-fade-in">
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MapPin size={18} color="#16a34a" /> Lokasi Pangkalan
+            </h2>
+            <LocationPickerDynamic
+              lat={form.latitude}
+              lng={form.longitude}
+              linkMaps={form.link_maps}
+              onChange={(lat, lng, link) => {
+                update('latitude', lat)
+                update('longitude', lng)
+                update('link_maps', link)
+              }}
+              onAddressFound={handleAddressFound}
+            />
+          </div>
+        )}
+
+        {/* ── Step 1: Identitas ── */}
+        {step === 1 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
               <ClipboardList size={18} color="#16a34a" /> Data Identitas Pangkalan
@@ -221,7 +272,7 @@ export default function TambahPangkalanPage() {
                   className="form-input"
                   placeholder="Contoh: Pangkalan Barokah"
                   value={form.nama_pangkalan}
-                  onChange={e => update('nama_pangkalan', e.target.value)}
+                  onChange={e => update('nama_pangkalan', e.target.value.toUpperCase())}
                 />
                 {errors.nama_pangkalan && <p className="form-error">{errors.nama_pangkalan}</p>}
               </div>
@@ -236,7 +287,7 @@ export default function TambahPangkalanPage() {
                   className="form-input"
                   placeholder="Nama lengkap pemilik"
                   value={form.nama_pemilik}
-                  onChange={e => update('nama_pemilik', e.target.value)}
+                  onChange={e => update('nama_pemilik', e.target.value.toUpperCase())}
                 />
                 {errors.nama_pemilik && <p className="form-error">{errors.nama_pemilik}</p>}
               </div>
@@ -275,8 +326,10 @@ export default function TambahPangkalanPage() {
                   type="tel"
                   className="form-input"
                   placeholder="08xxxxxxxxxx"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={form.nomor_hp}
-                  onChange={e => update('nomor_hp', e.target.value)}
+                  onChange={e => update('nomor_hp', e.target.value.replace(/\D/g, ''))}
                 />
                 {errors.nomor_hp && <p className="form-error">{errors.nomor_hp}</p>}
               </div>
@@ -301,14 +354,13 @@ export default function TambahPangkalanPage() {
                 <label className="form-label">
                   Kecamatan <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <select
-                  className="form-input form-select"
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Contoh: Kebon Jeruk"
                   value={form.kecamatan}
-                  onChange={e => { update('kecamatan', e.target.value); update('kelurahan', '') }}
-                >
-                  <option value="">-- Pilih Kecamatan --</option>
-                  {kecamatanList.map(k => <option key={k} value={k}>{k}</option>)}
-                </select>
+                  onChange={e => update('kecamatan', e.target.value)}
+                />
                 {errors.kecamatan && <p className="form-error">{errors.kecamatan}</p>}
               </div>
 
@@ -317,15 +369,13 @@ export default function TambahPangkalanPage() {
                 <label className="form-label">
                   Kelurahan / Desa <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <select
-                  className="form-input form-select"
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Contoh: Kedoya Selatan"
                   value={form.kelurahan}
                   onChange={e => update('kelurahan', e.target.value)}
-                  disabled={!form.kecamatan}
-                >
-                  <option value="">-- Pilih Kelurahan --</option>
-                  {kelurahanList.map(k => <option key={k} value={k}>{k}</option>)}
-                </select>
+                />
                 {errors.kelurahan && <p className="form-error">{errors.kelurahan}</p>}
               </div>
 
@@ -356,14 +406,14 @@ export default function TambahPangkalanPage() {
               {/* Status */}
               <div>
                 <label className="form-label">Status Pangkalan</label>
-                <select
-                  className="form-input form-select"
+                <CustomSelect
                   value={form.status}
-                  onChange={e => update('status', e.target.value as 'aktif' | 'nonaktif')}
-                >
-                  <option value="aktif">Aktif</option>
-                  <option value="nonaktif">Nonaktif</option>
-                </select>
+                  onChange={(val) => update('status', val as 'aktif' | 'nonaktif')}
+                  options={[
+                    { value: 'aktif', label: 'Aktif' },
+                    { value: 'nonaktif', label: 'Nonaktif' }
+                  ]}
+                />
               </div>
 
               {/* Catatan Admin */}
@@ -379,25 +429,6 @@ export default function TambahPangkalanPage() {
               </div>
 
             </div>
-          </div>
-        )}
-
-        {/* ── Step 2: Lokasi ── */}
-        {step === 1 && (
-          <div className="animate-fade-in">
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <MapPin size={18} color="#16a34a" /> Lokasi Pangkalan
-            </h2>
-            <LocationPickerDynamic
-              lat={form.latitude}
-              lng={form.longitude}
-              linkMaps={form.link_maps}
-              onChange={(lat, lng, link) => {
-                update('latitude', lat)
-                update('longitude', lng)
-                update('link_maps', link)
-              }}
-            />
           </div>
         )}
 

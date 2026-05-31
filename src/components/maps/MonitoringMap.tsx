@@ -25,11 +25,16 @@ export default function MonitoringMap({
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const { data } = await supabase
         .from('pangkalan')
         .select('id, nama_pangkalan, nama_pemilik, nomor_hp, status, foto_lengkap, kecamatan, kelurahan, latitude, longitude, foto_pangkalan(url, jenis_foto)')
+        .eq('created_by', user.id)
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
+      
       if (data) setPangkalanData(data as Pangkalan[])
     }
     fetchData()
@@ -159,20 +164,22 @@ export default function MonitoringMap({
             ? `<div style="height:130px;overflow:hidden;border-radius:10px 10px 0 0;margin:-1px -1px 0;">
                 <img src="${fotoUrl}" style="width:100%;height:100%;object-fit:cover;" loading="lazy"/>
                </div>`
-            : `<div style="height:70px;background:rgba(22,163,74,0.06);display:flex;align-items:center;justify-content:center;font-size:32px;border-radius:10px 10px 0 0;">🏪</div>`
+            : `<div style="height:70px;background:rgba(22,163,74,0.06);display:flex;align-items:center;justify-content:center;border-radius:10px 10px 0 0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9"/><path d="M12 3v6"/></svg>
+               </div>`
           }
           <div style="padding:14px;">
             <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:8px;">${p.nama_pangkalan}</div>
             <div style="font-size:12px;color:#64748b;display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
-              <span>👤 ${p.nama_pemilik}</span>
-              <span>📞 ${p.nomor_hp}</span>
-              <span>📍 ${p.kecamatan}${p.kelurahan ? ', ' + p.kelurahan : ''}</span>
+              <span style="display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${p.nama_pemilik}</span>
+              <span style="display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${p.nomor_hp}</span>
+              <span style="display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> ${p.kecamatan}${p.kelurahan ? ', ' + p.kelurahan : ''}</span>
             </div>
             <div style="display:flex;gap:6px;margin-bottom:12px;">
               <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${isAktif ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)'};color:${isAktif ? '#15803d' : '#dc2626'};">
                 ${isAktif ? '● Aktif' : '● Nonaktif'}
               </span>
-              ${!isLengkap ? '<span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.1);color:#d97706;">⚠ Belum Lengkap</span>' : ''}
+              ${!isLengkap ? '<span style="display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.1);color:#d97706;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Belum Lengkap</span>' : ''}
             </div>
             <a href="/pangkalan/${p.id}" style="display:block;text-align:center;padding:8px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#22c55e);color:white;font-size:12px;font-weight:700;text-decoration:none;">
               Lihat Detail →

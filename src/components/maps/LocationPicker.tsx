@@ -10,11 +10,12 @@ interface LocationPickerProps {
   lng: string
   linkMaps: string
   onChange: (lat: string, lng: string, linkMaps: string) => void
+  onAddressFound?: (addressData: any) => void
 }
 
 type InputMethod = 'manual' | 'link' | 'map' | 'gps'
 
-export function LocationPicker({ lat, lng, linkMaps, onChange }: LocationPickerProps) {
+export function LocationPicker({ lat, lng, linkMaps, onChange, onAddressFound }: LocationPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<unknown>(null)
   const markerRef = useRef<unknown>(null)
@@ -26,12 +27,15 @@ export function LocationPicker({ lat, lng, linkMaps, onChange }: LocationPickerP
 
   const reverseGeocode = async (latitude: number, longitude: number) => {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=id`,
-        { headers: { 'Accept-Language': 'id' } }
-      )
+      const res = await fetch(`/api/geocode?lat=${latitude}&lon=${longitude}`)
       const data = await res.json()
       setAddress(data.display_name || '')
+      if (onAddressFound && data.address) {
+        onAddressFound({
+          full: data.display_name,
+          ...data.address
+        })
+      }
     } catch {
       setAddress('')
     }

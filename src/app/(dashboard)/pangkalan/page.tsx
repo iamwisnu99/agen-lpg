@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getPangkalanList } from '@/lib/db'
 import type { Pangkalan } from '@/types'
+import { getFallbackProfileData } from '@/app/actions'
 import Link from 'next/link'
 import {
   Plus, Search, Filter, Download, Building2, FileSpreadsheet, FileText,
@@ -16,6 +17,7 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { CustomSelect } from '@/components/CustomSelect'
 
 const ITEMS_PER_PAGE = 10
 
@@ -29,6 +31,7 @@ export default function PangkalanPage() {
   const [page, setPage] = useState(1)
   const [kecamatanList, setKecamatanList] = useState<string[]>([])
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [wilayah, setWilayah] = useState('Jakarta Barat') // Default
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
@@ -57,15 +60,26 @@ export default function PangkalanPage() {
   useEffect(() => {
     const fetchKecamatan = async () => {
       const { data } = await supabase
-        .from('wilayah')
+        .from('pangkalan')
         .select('kecamatan')
         .order('kecamatan')
       if (data) {
-        const unique = [...new Set(data.map(w => w.kecamatan))]
+        const unique = [...new Set(data.map(p => p.kecamatan).filter(k => k && k.trim() !== ''))]
         setKecamatanList(unique)
       }
     }
     fetchKecamatan()
+
+    const fetchWilayah = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) {
+        const data = await getFallbackProfileData(user.email)
+        if (data?.wilayah) {
+          setWilayah(data.wilayah)
+        }
+      }
+    }
+    fetchWilayah()
   }, [])
 
   const handleToggleStatus = async (p: Pangkalan) => {
@@ -132,7 +146,7 @@ export default function PangkalanPage() {
     doc.text('AGEN LPG', 14, 16)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'normal')
-    doc.text('Data Pangkalan LPG 3Kg - Jakarta Barat', 14, 23)
+    doc.text(`Data Pangkalan LPG 3Kg - ${wilayah}`, 14, 23)
     doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 29)
 
     autoTable(doc, {
@@ -168,7 +182,7 @@ export default function PangkalanPage() {
         <div>
           <h1 className="page-title">Data Pangkalan</h1>
           <p className="page-subtitle">
-            Kelola seluruh data pangkalan LPG 3Kg wilayah Jakarta Barat
+            Kelola seluruh data pangkalan LPG 3Kg wilayah {wilayah}
           </p>
         </div>
         <Link href="/pangkalan/tambah" className="btn btn-primary">
@@ -194,7 +208,7 @@ export default function PangkalanPage() {
       </div>
 
       {/* Filter & Search */}
-      <div className="filter-panel" style={{ marginBottom: 16, flexDirection: 'column', alignItems: 'stretch' }}>
+      <div className="filter-panel" style={{ marginBottom: 16, flexDirection: 'column', alignItems: 'stretch', position: 'relative', zIndex: 40 }}>
         
         {/* Top Row: Search & Export */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%' }}>
@@ -229,43 +243,44 @@ export default function PangkalanPage() {
         </div>
 
         {/* Bottom Row: Filters */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%', position: 'relative', zIndex: 50 }}>
           {/* Status filter */}
-          <select
-            className="form-input form-select filter-item"
+          <CustomSelect
+            className="filter-item"
             style={{ flex: 1, minWidth: 140 }}
             value={filterStatus}
-            onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
-          >
-            <option value="semua">Semua Status</option>
-            <option value="aktif">Aktif</option>
-            <option value="nonaktif">Nonaktif</option>
-          </select>
+            onChange={(val) => { setFilterStatus(val); setPage(1) }}
+            options={[
+              { value: 'semua', label: 'Semua Status' },
+              { value: 'aktif', label: 'Aktif' },
+              { value: 'nonaktif', label: 'Nonaktif' }
+            ]}
+          />
 
           {/* Kecamatan filter */}
-          <select
-            className="form-input form-select filter-item"
+          <CustomSelect
+            className="filter-item"
             style={{ flex: 1, minWidth: 140 }}
             value={filterKecamatan}
-            onChange={e => { setFilterKecamatan(e.target.value); setPage(1) }}
-          >
-            <option value="semua">Semua Kecamatan</option>
-            {kecamatanList.map(k => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </select>
+            onChange={(val) => { setFilterKecamatan(val); setPage(1) }}
+            options={[
+              { value: 'semua', label: 'Semua Kecamatan' },
+              ...kecamatanList.map(k => ({ value: k, label: k }))
+            ]}
+          />
 
           {/* Foto filter */}
-          <select
-            className="form-input form-select filter-item"
+          <CustomSelect
+            className="filter-item"
             style={{ flex: 1, minWidth: 140 }}
             value={filterFoto}
-            onChange={e => { setFilterFoto(e.target.value); setPage(1) }}
-          >
-            <option value="semua">Semua Dokumen</option>
-            <option value="lengkap">Dokumen Lengkap</option>
-            <option value="belum">Belum Lengkap</option>
-          </select>
+            onChange={(val) => { setFilterFoto(val); setPage(1) }}
+            options={[
+              { value: 'semua', label: 'Semua Dokumen' },
+              { value: 'lengkap', label: 'Dokumen Lengkap' },
+              { value: 'belum', label: 'Belum Lengkap' }
+            ]}
+          />
         </div>
 
         {/* Export buttons (Mobile only, positioned bottom) */}

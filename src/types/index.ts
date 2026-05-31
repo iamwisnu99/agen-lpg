@@ -7,6 +7,7 @@ export type Json =
   | Json[]
 
 export type StatusPangkalan = 'aktif' | 'nonaktif'
+export type StatusArmada = 'aktif' | 'perbaikan' | 'nonaktif'
 export type JenisFoto = 'gas_detector' | 'apar' | 'bak_tes_kebocoran' | 'timbangan' | 'papan_pangkalan'
 export type JenisAksi = 'tambah' | 'edit' | 'hapus' | 'aktifkan' | 'nonaktifkan' | 'upload_foto' | 'hapus_foto' | 'login' | 'logout'
 
@@ -55,6 +56,20 @@ export interface Pangkalan {
   // Relations (optional join)
   profiles?: Profile
   foto_pangkalan?: FotoPangkalan[]
+}
+
+export interface Armada {
+  id: string
+  no_plat: string
+  nama_sopir: string
+  jatuh_tempo_pajak_1_tahun: string | null
+  jatuh_tempo_plat_5_tahun: string | null
+  foto_kendaraan: string | null
+  status: StatusArmada
+  created_at: string
+  updated_at: string
+  created_by: string | null
+  updated_by: string | null
 }
 
 export interface FotoPangkalan {
@@ -110,6 +125,15 @@ export interface PangkalanFormData {
   link_maps: string
   status: StatusPangkalan
   catatan_admin: string
+}
+
+export interface ArmadaFormData {
+  no_plat: string
+  nama_sopir: string
+  jatuh_tempo_pajak_1_tahun: string
+  jatuh_tempo_plat_5_tahun: string
+  foto_kendaraan: string
+  status: StatusArmada
 }
 
 export const JENIS_FOTO_LABELS: Record<JenisFoto, string> = {

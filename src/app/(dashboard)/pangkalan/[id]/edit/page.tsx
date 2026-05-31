@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
+import { CustomSelect } from '@/components/CustomSelect'
 
 const LocationPickerDynamic = dynamic(
   () => import('@/components/maps/LocationPicker').then(m => ({ default: m.LocationPicker })),
@@ -71,7 +72,10 @@ export default function EditPangkalanPage() {
     if (!form?.kecamatan) { setKelurahanList([]); return }
     const fetchKelurahan = async () => {
       const { data } = await supabase.from('wilayah').select('kelurahan').eq('kecamatan', form.kecamatan).order('kelurahan')
-      if (data) setKelurahanList(data.map(w => w.kelurahan))
+      if (data) {
+        const unique = [...new Set(data.map(w => w.kelurahan))]
+        setKelurahanList(unique)
+      }
     }
     fetchKelurahan()
   }, [form?.kecamatan])
@@ -168,12 +172,12 @@ export default function EditPangkalanPage() {
         <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
           <div style={{ gridColumn: '1 / -1' }}>
             <label className="form-label">Nama Pangkalan <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="text" className="form-input" value={form.nama_pangkalan} onChange={e => update('nama_pangkalan', e.target.value)} />
+            <input type="text" className="form-input" value={form.nama_pangkalan} onChange={e => update('nama_pangkalan', e.target.value.toUpperCase())} />
             {errors.nama_pangkalan && <p className="form-error">{errors.nama_pangkalan}</p>}
           </div>
           <div>
             <label className="form-label">Nama Pemilik <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="text" className="form-input" value={form.nama_pemilik} onChange={e => update('nama_pemilik', e.target.value)} />
+            <input type="text" className="form-input" value={form.nama_pemilik} onChange={e => update('nama_pemilik', e.target.value.toUpperCase())} />
             {errors.nama_pemilik && <p className="form-error">{errors.nama_pemilik}</p>}
           </div>
           <div>
@@ -183,7 +187,7 @@ export default function EditPangkalanPage() {
           </div>
           <div>
             <label className="form-label">Nomor HP <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="tel" className="form-input" value={form.nomor_hp} onChange={e => update('nomor_hp', e.target.value)} />
+            <input type="tel" className="form-input" inputMode="numeric" pattern="[0-9]*" value={form.nomor_hp} onChange={e => update('nomor_hp', e.target.value.replace(/\D/g, ''))} />
             {errors.nomor_hp && <p className="form-error">{errors.nomor_hp}</p>}
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -193,18 +197,12 @@ export default function EditPangkalanPage() {
           </div>
           <div>
             <label className="form-label">Kecamatan <span style={{ color: '#ef4444' }}>*</span></label>
-            <select className="form-input form-select" value={form.kecamatan} onChange={e => { update('kecamatan', e.target.value); update('kelurahan', '') }}>
-              <option value="">-- Pilih Kecamatan --</option>
-              {kecamatanList.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <input type="text" className="form-input" placeholder="Contoh: Kebon Jeruk" value={form.kecamatan} onChange={e => update('kecamatan', e.target.value)} />
             {errors.kecamatan && <p className="form-error">{errors.kecamatan}</p>}
           </div>
           <div>
             <label className="form-label">Kelurahan <span style={{ color: '#ef4444' }}>*</span></label>
-            <select className="form-input form-select" value={form.kelurahan} onChange={e => update('kelurahan', e.target.value)} disabled={!form.kecamatan}>
-              <option value="">-- Pilih Kelurahan --</option>
-              {kelurahanList.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <input type="text" className="form-input" placeholder="Contoh: Kedoya Selatan" value={form.kelurahan} onChange={e => update('kelurahan', e.target.value)} />
             {errors.kelurahan && <p className="form-error">{errors.kelurahan}</p>}
           </div>
           <div>
@@ -213,10 +211,14 @@ export default function EditPangkalanPage() {
           </div>
           <div>
             <label className="form-label">Status</label>
-            <select className="form-input form-select" value={form.status} onChange={e => update('status', e.target.value)}>
-              <option value="aktif">Aktif</option>
-              <option value="nonaktif">Nonaktif</option>
-            </select>
+            <CustomSelect
+              value={form.status}
+              onChange={(val) => update('status', val)}
+              options={[
+                { value: 'aktif', label: 'Aktif' },
+                { value: 'nonaktif', label: 'Nonaktif' }
+              ]}
+            />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label className="form-label">Catatan Admin</label>

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from 'react-hot-toast'
+import { PwaRegister } from '@/components/PwaRegister'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -75,6 +76,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
+          <PwaRegister />
           {children}
           <Toaster
             position="top-right"
