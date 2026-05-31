@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getInitials } from '@/lib/utils'
-import { getFallbackProfileData } from '@/app/actions'
+import { getFallbackProfileData, saveSystemSettingsData } from '@/app/actions'
 
 const SISTEM_DEFAULTS = {
   nama_agen: '',
@@ -63,6 +63,10 @@ export default function PengaturanPage() {
         full_name: userFullName,
         email: userEmail,
         phone: userPhone,
+        role: user.user_metadata?.role || 'admin',
+        avatar_url: profileData?.avatar_url || null,
+        created_at: profileData?.created_at || '',
+        updated_at: profileData?.updated_at || '',
       })
       setForm({ full_name: userFullName, phone: userPhone })
       setLoading(false)
