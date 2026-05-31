@@ -24,7 +24,6 @@ export default function TambahArmadaPage() {
     jatuh_tempo_pajak_1_tahun: '',
     jatuh_tempo_plat_5_tahun: '',
     foto_kendaraan: '',
-    foto_kendaraan: '',
     status: 'aktif'
   })
   
