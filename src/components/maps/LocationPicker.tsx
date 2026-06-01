@@ -136,13 +136,39 @@ export function LocationPicker({ lat, lng, linkMaps, onChange, onAddressFound }:
     }
   }, [lat, lng])
 
-  const handleLinkExtract = () => {
-    const coords = extractCoordsFromGoogleMaps(linkInput)
+  const handleLinkExtract = async () => {
+    if (!linkInput.trim()) {
+      toast.error('Masukkan link Google Maps terlebih dahulu')
+      return
+    }
+
+    let urlToProcess = linkInput.trim()
+
+    // Detect short URLs (maps.app.goo.gl, goo.gl/maps) — resolve via server-side API
+    const isShortUrl = /maps\.app\.goo\.gl|goo\.gl\/maps/.test(urlToProcess)
+    if (isShortUrl) {
+      try {
+        toast.loading('Memproses link...', { id: 'resolve-url' })
+        const res = await fetch(`/api/resolve-url?url=${encodeURIComponent(urlToProcess)}`)
+        const data = await res.json()
+        if (data.resolvedUrl) {
+          urlToProcess = data.resolvedUrl
+        }
+        toast.dismiss('resolve-url')
+      } catch {
+        toast.dismiss('resolve-url')
+        toast.error('Gagal memproses link. Coba gunakan link panjang Google Maps.')
+        return
+      }
+    }
+
+    const coords = extractCoordsFromGoogleMaps(urlToProcess)
     if (coords) {
       onChange(coords.lat.toFixed(7), coords.lng.toFixed(7), linkInput)
+      await reverseGeocode(coords.lat, coords.lng)
       toast.success(`Koordinat berhasil diekstrak: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`)
     } else {
-      toast.error('Format link tidak dikenali. Coba link share Google Maps yang valid.')
+      toast.error('Koordinat tidak ditemukan di link ini. Pastikan link share dari Google Maps.')
     }
   }
 
@@ -177,14 +203,15 @@ export function LocationPicker({ lat, lng, linkMaps, onChange, onAddressFound }:
 
   return (
     <div>
-      {/* Method selector */}
+      {/* Method selector — 2x2 on mobile, 4 columns on desktop */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 8,
           marginBottom: 16,
         }}
+        className="location-method-grid"
       >
         {methods.map(m => {
           const Icon = m.icon
@@ -194,14 +221,16 @@ export function LocationPicker({ lat, lng, linkMaps, onChange, onAddressFound }:
               type="button"
               onClick={m.key === 'gps' ? handleGPS : () => setMethod(m.key)}
               className={`btn btn-sm ${method === m.key ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ flexDirection: 'column', gap: 4, padding: '10px 8px', height: 'auto', fontSize: 11 }}
+              style={{ flexDirection: 'column', gap: 4, padding: '10px 8px', height: 'auto', fontSize: 11, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
               disabled={m.key === 'gps' && gpsLoading}
             >
               {m.key === 'gps' && gpsLoading
                 ? <Loader2 size={16} className="animate-spin" />
                 : <Icon size={16} />
               }
-              {m.key === 'gps' && gpsLoading ? 'Mengambil...' : m.label}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                {m.key === 'gps' && gpsLoading ? 'Mengambil...' : m.label}
+              </span>
             </button>
           )
         })}

@@ -10,6 +10,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { formatDate, getDaysRemaining } from '@/lib/utils'
 import { format, addYears } from 'date-fns'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 export default function DetailArmadaPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +19,7 @@ export default function DetailArmadaPage() {
   const [armada, setArmada] = useState<Armada | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [updatingTax, setUpdatingTax] = useState(false)
   const [dismissedTax1, setDismissedTax1] = useState(false)
   const [dismissedTax5, setDismissedTax5] = useState(false)
@@ -45,8 +47,6 @@ export default function DetailArmadaPage() {
 
   const handleDelete = async () => {
     if (!armada) return
-    if (!window.confirm(`Yakin ingin menghapus armada ${armada.no_plat}?`)) return
-    
     setDeleting(true)
     try {
       await logAktivitas({
@@ -62,6 +62,7 @@ export default function DetailArmadaPage() {
     } catch (err) {
       toast.error('Gagal menghapus data')
       setDeleting(false)
+      setShowDeleteModal(false)
     }
   }
 
@@ -126,6 +127,7 @@ export default function DetailArmadaPage() {
   }
 
   return (
+    <>
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
@@ -142,7 +144,7 @@ export default function DetailArmadaPage() {
         </div>
         
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }} onClick={handleDelete} disabled={deleting}>
+          <button className="btn" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }} onClick={() => setShowDeleteModal(true)} disabled={deleting}>
             <Trash2 size={16} /> <span className="mobile-hidden">Hapus</span>
           </button>
           <Link href={`/armada/${armada.id}/edit`} className="btn btn-primary">
@@ -267,5 +269,16 @@ export default function DetailArmadaPage() {
         )}
       </div>
     </div>
+
+    <DeleteConfirmModal
+      open={showDeleteModal}
+      title="Hapus Data Armada?"
+      description="Anda akan menghapus data kendaraan berikut secara permanen:"
+      itemName={armada?.no_plat}
+      loading={deleting}
+      onConfirm={handleDelete}
+      onCancel={() => setShowDeleteModal(false)}
+    />
+    </>
   )
 }

@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
 import StaticMiniMap from '@/components/maps/StaticMiniMap'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 const PhotoUploadDynamic = dynamic(
   () => import('@/components/pangkalan/PhotoUpload').then(m => ({ default: m.PhotoUpload })),
@@ -29,6 +30,7 @@ export default function DetailPangkalanPage() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -82,9 +84,6 @@ export default function DetailPangkalanPage() {
 
   const handleDelete = async () => {
     if (!pangkalan) return
-    if (!confirm(`Hapus pangkalan "${pangkalan.nama_pangkalan}"? Tindakan ini tidak bisa dibatalkan.`)) return
-    if (!confirm('Yakin? Semua data dan foto akan dihapus permanen.')) return
-
     setDeleting(true)
     try {
       await logAktivitas({
@@ -108,6 +107,7 @@ export default function DetailPangkalanPage() {
     } catch {
       toast.error('Gagal menghapus pangkalan')
       setDeleting(false)
+      setShowDeleteModal(false)
     }
   }
 
@@ -143,6 +143,7 @@ export default function DetailPangkalanPage() {
   })) ?? []
 
   return (
+    <>
     <div className="stagger-children">
       {/* Header */}
       <div className="page-header">
@@ -183,7 +184,7 @@ export default function DetailPangkalanPage() {
           </Link>
           <button
             className="btn btn-danger btn-sm"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteModal(true)}
             disabled={deleting}
           >
             {deleting
@@ -396,5 +397,16 @@ export default function DetailPangkalanPage() {
         </div>
       </div>
     </div>
+
+    <DeleteConfirmModal
+      open={showDeleteModal}
+      title="Hapus Data Pangkalan?"
+      description="Anda akan menghapus pangkalan berikut beserta seluruh foto dan datanya secara permanen:"
+      itemName={pangkalan?.nama_pangkalan}
+      loading={deleting}
+      onConfirm={handleDelete}
+      onCancel={() => setShowDeleteModal(false)}
+    />
+    </>
   )
 }

@@ -124,6 +124,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn('nav-item', isActive(item.href) && 'active')}
+              onClick={onClose}
             >
               <Icon size={20} className="nav-item-icon" />
               <span className="nav-item-label">{item.label}</span>
@@ -137,6 +138,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <Link
           href="/pengaturan"
           className={cn('nav-item', isActive('/pengaturan') && 'active')}
+          onClick={onClose}
         >
           <Settings size={20} className="nav-item-icon" />
           <span className="nav-item-label">Pengaturan</span>

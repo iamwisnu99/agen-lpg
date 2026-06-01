@@ -14,6 +14,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { CustomSelect } from '@/components/CustomSelect'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 const ITEMS_PER_PAGE = 10
 
@@ -24,6 +25,7 @@ export default function ArmadaPage() {
   const [filterStatus, setFilterStatus] = useState('semua')
   const [page, setPage] = useState(1)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; no_plat: string; data: Armada } | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -97,8 +99,6 @@ export default function ArmadaPage() {
   }).length
 
   const handleDelete = async (id: string, no_plat: string, data: Armada) => {
-    if (!window.confirm(`Yakin ingin menghapus armada ${no_plat}?`)) return
-    
     setDeletingId(id)
     try {
       await logAktivitas({
@@ -115,6 +115,7 @@ export default function ArmadaPage() {
       toast.error('Gagal menghapus data')
     } finally {
       setDeletingId(null)
+      setPendingDelete(null)
     }
   }
 
@@ -123,7 +124,8 @@ export default function ArmadaPage() {
   const paginatedData = armada.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
   return (
-    <div className="stagger-children">
+    <>
+      <div className="stagger-children">
       {/* Header */}
       <div className="page-header">
         <div>
@@ -251,7 +253,7 @@ export default function ArmadaPage() {
                       className="btn btn-ghost btn-icon" 
                       style={{ padding: 6, height: 'auto', width: 'auto' }} 
                       title="Hapus"
-                      onClick={(e) => { e.preventDefault(); handleDelete(a.id, a.no_plat, a) }}
+                      onClick={(e) => { e.preventDefault(); setPendingDelete({ id: a.id, no_plat: a.no_plat, data: a }) }}
                       disabled={deletingId === a.id}
                     >
                       <Trash2 size={16} color="#ef4444" />
@@ -287,5 +289,16 @@ export default function ArmadaPage() {
         </div>
       )}
     </div>
+
+    <DeleteConfirmModal
+      open={!!pendingDelete}
+      title="Hapus Data Armada?"
+      description="Anda akan menghapus data kendaraan berikut secara permanen:"
+      itemName={pendingDelete?.no_plat}
+      loading={!!deletingId}
+      onConfirm={() => pendingDelete && handleDelete(pendingDelete.id, pendingDelete.no_plat, pendingDelete.data)}
+      onCancel={() => setPendingDelete(null)}
+    />
+    </>
   )
 }

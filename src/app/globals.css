@@ -1131,3 +1131,19 @@ body {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* ============================================================
+   LOCATION METHOD GRID (responsive)
+   ============================================================ */
+/* Mobile: 2 columns (default) */
+.location-method-grid {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+/* Tablet & Desktop: 4 columns */
+@media (min-width: 480px) {
+  .location-method-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
