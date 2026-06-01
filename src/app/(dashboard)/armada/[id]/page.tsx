@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 import { formatDate, getDaysRemaining } from '@/lib/utils'
 import { format, addYears } from 'date-fns'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
+import Image from 'next/image'
 
 export default function DetailArmadaPage() {
   const { id } = useParams<{ id: string }>()
@@ -156,7 +157,7 @@ export default function DetailArmadaPage() {
       <div className="card" style={{ marginBottom: 24, overflow: 'hidden', padding: 0 }}>
         <div style={{ background: 'var(--bg-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', aspectRatio: '16/9', position: 'relative' }}>
           {armada.foto_kendaraan ? (
-            <img src={armada.foto_kendaraan} alt={armada.no_plat} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <Image src={armada.foto_kendaraan} alt={armada.no_plat} fill sizes="(max-width: 768px) 100vw, 700px" style={{ objectFit: 'cover' }} />
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
               <Truck size={64} style={{ margin: '0 auto', marginBottom: 12, opacity: 0.5 }} />

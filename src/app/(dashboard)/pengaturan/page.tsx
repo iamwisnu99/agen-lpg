@@ -11,6 +11,7 @@ import {
 import toast from 'react-hot-toast'
 import { getInitials } from '@/lib/utils'
 import { getFallbackProfileData, saveSystemSettingsData } from '@/app/actions'
+import Image from 'next/image'
 
 const SISTEM_DEFAULTS = {
   nama_agen: '',
@@ -278,9 +279,9 @@ export default function PengaturanPage() {
               background: 'var(--bg-surface)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-              border: '1px solid var(--border-default)', overflow: 'hidden'
+              border: '1px solid var(--border-default)', overflow: 'hidden', position: 'relative'
             }}>
-              <img src="/icons/favicon-96x96.png" alt="Logo LPG" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+              <Image src="/icons/favicon-96x96.png" alt="Logo LPG" width={64} height={64} style={{ objectFit: 'contain' }} />
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -292,9 +293,9 @@ export default function PengaturanPage() {
               background: 'var(--bg-surface)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-              border: '1px solid var(--border-default)', overflow: 'hidden'
+              border: '1px solid var(--border-default)', overflow: 'hidden', position: 'relative'
             }}>
-              <img src="/primadev.png" alt="Primadev Logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+              <Image src="/primadev.png" alt="Primadev Logo" width={64} height={64} style={{ objectFit: 'contain' }} />
             </div>
           </div>
           <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>

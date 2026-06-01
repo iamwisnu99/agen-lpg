@@ -247,11 +247,12 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = [], o
               >
                 {existing ? (
                   <>
-                    <img
+                    <Image
                       src={existing.url}
                       alt={JENIS_FOTO_LABELS[jenis]}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      loading="lazy"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 300px"
+                      style={{ objectFit: 'cover' }}
                     />
                     {/* Overlay on hover */}
                     <div
@@ -371,11 +372,13 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = [], o
               </button>
             </div>
             <div className="modal-body" style={{ padding: 0 }}>
-              <div style={{ aspectRatio: '4/3', overflow: 'hidden' }}>
-                <img
+              <div style={{ aspectRatio: '4/3', overflow: 'hidden', position: 'relative' }}>
+                <Image
                   src={preview.url}
                   alt="Preview"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 800px"
+                  style={{ objectFit: 'cover' }}
                 />
               </div>
               <div style={{ padding: 16 }}>

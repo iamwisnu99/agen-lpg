@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Eye, EyeOff, Loader2, User, Mail, Lock, Building2, MapPin, ChevronRight, ChevronLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -256,7 +257,7 @@ export default function RegisterPage() {
 
         {/* Left Panel */}
         <div className="mobile-hidden" style={{ flex: 1.2, position: 'relative', overflow: 'hidden' }}>
-          <img src="/login_image.webp" alt="LPG Distribution" style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover' }} />
+          <Image src="/login_image.webp" alt="LPG Distribution" fill priority style={{ objectFit: 'cover' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(13,80,42,0.92), rgba(22,163,74,0.25))' }} />
           <div style={{ position: 'absolute', top: '50%', left: '10%', right: '10%', transform: 'translateY(-50%)' }}>
             <h1 style={{ color: 'white', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 800, lineHeight: 1.1, textShadow: '0 4px 12px rgba(0,0,0,0.3)', letterSpacing: '-0.02em' }}>
@@ -274,7 +275,9 @@ export default function RegisterPage() {
 
             {/* Logo */}
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
-              <img src="/icons/favicon-96x96.png" alt="Logo" style={{ width: 56, height: 56, objectFit: 'contain', margin: '0 auto 12px', display: 'block' }} />
+              <div style={{ width: 56, height: 56, margin: '0 auto 12px', position: 'relative' }}>
+                <Image src="/icons/favicon-96x96.png" alt="Logo" fill style={{ objectFit: 'contain' }} />
+              </div>
               <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Buat Akun Baru</h2>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Sistem Manajemen Pangkalan LPG 3Kg</p>
             </div>
@@ -456,7 +459,7 @@ export default function RegisterPage() {
             <p>© {new Date().getFullYear()} Agen LPG. All Rights Reserved.</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
               <span>Made by</span>
-              <img src="/primadev.png" alt="PrimaDev" style={{ height: 22, objectFit: 'contain' }} />
+              <Image src="/primadev.png" alt="PrimaDev" width={80} height={22} style={{ objectFit: 'contain' }} />
             </div>
           </div>
         </div>

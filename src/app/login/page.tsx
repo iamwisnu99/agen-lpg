@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -52,10 +53,12 @@ export default function LoginPage() {
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
       {/* Left Panel (Hidden on Mobile) */}
       <div className="mobile-hidden" style={{ flex: 1.2, position: 'relative', overflow: 'hidden' }}>
-        <img
+        <Image
           src="/login_image.webp"
           alt="LPG Distribution"
-          style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover' }}
+          fill
+          priority
+          style={{ objectFit: 'cover' }}
         />
         {/* Gradient Overlay */}
         <div
@@ -89,8 +92,8 @@ export default function LoginPage() {
 
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ width: 96, height: 96, margin: '0 auto 16px' }}>
-              <img src="/icons/favicon-96x96.png" alt="Agen LPG Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <div style={{ width: 96, height: 96, margin: '0 auto 16px', position: 'relative' }}>
+              <Image src="/icons/favicon-96x96.png" alt="Agen LPG Logo" fill style={{ objectFit: 'contain' }} />
             </div>
             <h2 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
               Masuk ke Akun
@@ -235,7 +238,7 @@ export default function LoginPage() {
           <p>© {new Date().getFullYear()} Agen LPG. All Rights Reserved.</p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
             <span>Made by</span>
-            <img src="/primadev.png" alt="PrimaDev" style={{ height: 22, objectFit: 'contain' }} />
+            <Image src="/primadev.png" alt="PrimaDev" width={80} height={22} style={{ objectFit: 'contain' }} />
           </div>
         </div>
       </div>
