@@ -61,6 +61,14 @@ export function extractCoordsFromGoogleMaps(url: string): { lat: number; lng: nu
       return { lat: parseFloat(llMatch[1]), lng: parseFloat(llMatch[2]) }
     }
 
+    // Generic fallback for any robust coordinate pair in the URL (e.g. redirected from maps.app.goo.gl)
+    // Matches: -6.177174,+106.768506 or -6.177174%2C106.768506 or -6.177174, 106.768506
+    // Requires at least 4 decimal places to prevent matching random numbers in the URL
+    const genericMatch = url.match(/(-?\d{1,2}\.\d{4,})(?:,|%2C|\+|%2B|\s)+(-?\d{1,3}\.\d{4,})/)
+    if (genericMatch) {
+      return { lat: parseFloat(genericMatch[1]), lng: parseFloat(genericMatch[2]) }
+    }
+
     return null
   } catch {
     return null

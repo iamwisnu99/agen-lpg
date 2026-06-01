@@ -6,12 +6,14 @@ import { logAktivitas } from '@/lib/db'
 import type { Profile } from '@/types'
 import {
   User, Save, Loader2, Key, Shield,
-  Building2, AlertTriangle, Download, Info
+  Building2, AlertTriangle, Download, Info, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getInitials } from '@/lib/utils'
 import { getFallbackProfileData, saveSystemSettingsData } from '@/app/actions'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 const SISTEM_DEFAULTS = {
   nama_agen: '',
@@ -26,6 +28,12 @@ export default function PengaturanPage() {
   const [form, setForm] = useState({ full_name: '', phone: '' })
   const [passwordForm, setPasswordForm] = useState({ newPass: '', confirm: '' })
   const [changingPassword, setChangingPassword] = useState(false)
+  
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteSoldTo, setDeleteSoldTo] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'profil' | 'sistem' | 'info'>('profil')
   const [sistemForm, setSistemForm] = useState(SISTEM_DEFAULTS)
   const [savingSistem, setSavingSistem] = useState(false)
@@ -131,6 +139,36 @@ export default function PengaturanPage() {
       toast.error('Gagal menyimpan pengaturan sistem')
     }
     setSavingSistem(false)
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteSoldTo !== sistemForm.sold_to) {
+      toast.error('Kode Sold To yang Anda masukkan tidak sesuai.')
+      return
+    }
+
+    setDeletingAccount(true)
+    try {
+      const response = await fetch('/api/account/delete', {
+        method: 'DELETE',
+      })
+      
+      const resData = await response.json()
+      
+      if (resData.success) {
+        toast.success(resData.message || 'Akun berhasil dihapus.')
+        await supabase.auth.signOut()
+        router.push('/login')
+      } else {
+        toast.error(resData.message || 'Gagal menghapus akun.')
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error('Terjadi kesalahan saat menghapus akun.')
+    } finally {
+      setDeletingAccount(false)
+      setShowDeleteModal(false)
+    }
   }
 
   const tabs = [
@@ -391,8 +429,56 @@ export default function PengaturanPage() {
             </div>
           </div>
 
+          {/* Danger Zone */}
+          <div className="card" style={{ border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.02)' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertTriangle size={18} /> Zona Berbahaya
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+              Menghapus akun akan memusnahkan secara permanen seluruh data Anda (Profil, Armada, Pangkalan, Foto, dan Log Aktivitas) dari server kami. Tindakan ini <strong>tidak dapat dibatalkan</strong>.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="btn btn-ghost"
+              style={{
+                background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)',
+                fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8
+              }}
+            >
+              <Trash2 size={16} /> Hapus Akun Permanen
+            </button>
+          </div>
+
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        open={showDeleteModal}
+        title="Hapus Akun Permanen?"
+        description="Peringatan keras: Anda akan menghapus akun beserta SELURUH data pangkalan, armada, dan riwayat yang Anda miliki. Untuk mengonfirmasi, ketikkan Sold To akun ini di bawah."
+        itemName={`Ketik: ${sistemForm.sold_to}`}
+        loading={deletingAccount}
+        confirmDisabled={deleteSoldTo !== sistemForm.sold_to}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => {
+          setShowDeleteModal(false)
+          setDeleteSoldTo('')
+        }}
+      >
+        <div style={{ marginTop: 8 }}>
+          <label className="form-label" style={{ fontSize: 13, marginBottom: 8 }}>Masukkan Kode Sold To</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder={sistemForm.sold_to}
+            value={deleteSoldTo}
+            onChange={(e) => setDeleteSoldTo(e.target.value)}
+            style={{ textAlign: 'center', fontWeight: 'bold' }}
+          />
+        </div>
+      </DeleteConfirmModal>
+
     </div>
   )
 }

@@ -10,6 +10,8 @@ interface DeleteConfirmModalProps {
   description: string
   itemName?: string
   loading?: boolean
+  confirmDisabled?: boolean
+  children?: React.ReactNode
   onConfirm: () => void
   onCancel: () => void
 }
@@ -20,6 +22,8 @@ export function DeleteConfirmModal({
   description,
   itemName,
   loading = false,
+  confirmDisabled = false,
+  children,
   onConfirm,
   onCancel,
 }: DeleteConfirmModalProps) {
@@ -336,12 +340,19 @@ export function DeleteConfirmModal({
             <span>Tindakan ini <strong>tidak dapat dibatalkan</strong>. Data yang dihapus tidak bisa dipulihkan.</span>
           </div>
 
+          {/* Children / Extra Content */}
+          {children && (
+            <div style={{ marginBottom: 24, textAlign: 'left' }}>
+              {children}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="dcm-actions">
             <button className="dcm-btn-cancel" onClick={handleClose} disabled={loading}>
               Batal
             </button>
-            <button className="dcm-btn-confirm" onClick={onConfirm} disabled={loading}>
+            <button className="dcm-btn-confirm" onClick={onConfirm} disabled={loading || confirmDisabled}>
               {loading
                 ? <><Loader2 size={16} className="animate-spin" /> Menghapus...</>
                 : <><Trash2 size={16} /> Ya, Hapus</>
