@@ -14,10 +14,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL('https://agen-lpg.netlify.app'),
   title: {
-    default: 'Agen LPG',
+    default: 'Agen LPG - Monitoring Pangkalan',
     template: 'Agen LPG - %s',
   },
-  description: 'Sistem Manajemen Data Pangkalan LPG 3Kg – Agen LPG Jakarta Barat. Kelola data pangkalan, laporan harian, dan monitoring penyaluran dengan efisien.',
+  description: 'Aplikasi resmi untuk sistem manajemen data Pangkalan LPG 3Kg, laporan harian, dan monitoring penyaluran Agen LPG Jakarta Barat.',
   keywords: ['LPG', 'pangkalan', 'agen lpg', 'manajemen', 'Jakarta Barat', 'cahaya wanodya sejati', 'sistem LPG 3kg', 'monitoring lpg'],
   authors: [{ name: 'Agen LPG Jakarta Barat' }],
   creator: 'PrimaDev',
@@ -25,23 +25,23 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'id_ID',
     url: 'https://agen-lpg.netlify.app',
-    title: 'Agen LPG - Sistem Manajemen Pangkalan 3Kg',
-    description: 'Aplikasi manajemen dan monitoring pangkalan LPG 3Kg terpadu untuk wilayah Jakarta Barat.',
-    siteName: 'Agen LPG',
+    title: 'Agen LPG - Monitoring Pangkalan',
+    description: 'Sistem manajemen data Pangkalan LPG 3Kg dan monitoring penyaluran terpadu.',
+    siteName: 'Agen LPG - Monitoring Pangkalan',
     images: [
       {
-        url: '/icons/favicon-96x96.png',
-        width: 96,
-        height: 96,
+        url: '/icons/web-app-manifest-512x512.png',
+        width: 512,
+        height: 512,
         alt: 'Agen LPG Logo',
       }
     ],
   },
   twitter: {
     card: 'summary',
-    title: 'Agen LPG - Sistem Manajemen Pangkalan 3Kg',
-    description: 'Aplikasi manajemen dan monitoring pangkalan LPG 3Kg terpadu untuk wilayah Jakarta Barat.',
-    images: ['/icons/favicon-96x96.png'],
+    title: 'Agen LPG - Monitoring Pangkalan',
+    description: 'Sistem manajemen data Pangkalan LPG 3Kg dan monitoring penyaluran terpadu.',
+    images: ['/icons/web-app-manifest-512x512.png'],
   },
   icons: {
     icon: [
@@ -73,6 +73,18 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "Agen LPG - Monitoring Pangkalan",
+              "alternateName": ["Agen LPG", "Agen LPG Jakarta Barat"],
+              "url": "https://agen-lpg.netlify.app"
+            })
+          }}
+        />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>

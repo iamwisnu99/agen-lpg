@@ -1,10 +1,14 @@
-import type { Metadata } from 'next'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Login',
-  description: 'Login ke sistem manajemen pangkalan Agen LPG',
+  description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola dan memonitor data pangkalan secara efisien.',
+  openGraph: {
+    title: 'Login - Agen LPG',
+    description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola dan memonitor data pangkalan secara efisien.',
+  }
 }
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return children
+export default function LoginLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
