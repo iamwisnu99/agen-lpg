@@ -236,10 +236,6 @@ export default function LoginPage() {
           }}
         >
           <p>© {new Date().getFullYear()} Agen LPG. All Rights Reserved.</p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
-            <span>Made by</span>
-            <Image src="/primadev.png" alt="PrimaDev" width={80} height={22} style={{ objectFit: 'contain' }} />
-          </div>
         </div>
       </div>
     </div>
