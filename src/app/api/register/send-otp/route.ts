@@ -165,9 +165,43 @@ function buildEmailTemplate(otp: string, namaLengkap: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { nama_lengkap, email, password, konfirmasi_password, nama_agen, sold_to, wilayah } = body
+    const { nama_lengkap, email, password, konfirmasi_password, nama_agen, sold_to, wilayah, agreedToTerms } = body
 
-    // --- Validasi ---
+    // --- Cek data akun saat ini (termasuk status banned) ---
+    const { data: existingAccount } = await supabase
+      .from('agen_account')
+      .select('id, is_verified, is_banned, strike_count')
+      .eq('email', email)
+      .maybeSingle()
+
+    // Jika sudah di-banned, tolak langsung
+    if (existingAccount?.is_banned) {
+      return NextResponse.json({ success: false, message: 'Email Anda telah diblokir secara permanen dari sistem kami karena mencoba melakukan bypass keamanan. Silakan hubungi kami via Kontak Resmi.' }, { status: 403 })
+    }
+
+    // --- Anti-Bypass Checkbox ---
+    if (agreedToTerms !== true) {
+      const currentStrikes = existingAccount?.strike_count || 0
+      const newStrikes = currentStrikes + 1
+      
+      // Upsert data minimal untuk mencatat strike
+      await supabase.from('agen_account').upsert({
+        email,
+        nama_lengkap: nama_lengkap || 'Unknown',
+        password_hash: 'banned',
+        strike_count: newStrikes,
+        is_banned: newStrikes >= 2,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' })
+
+      if (newStrikes >= 2) {
+        return NextResponse.json({ success: false, message: 'Email Anda telah diblokir karena mengulangi upaya bypass sistem pendaftaran. Hubungi Kontak Resmi.' }, { status: 403 })
+      } else {
+        return NextResponse.json({ success: false, message: 'PERINGATAN KERAS: Anda telah mencoba merubah sistem kami untuk melewati persetujuan Syarat & Ketentuan. Lakukan sekali lagi dan email Anda akan diblokir!' }, { status: 400 })
+      }
+    }
+
+    // --- Validasi Data ---
     if (!nama_lengkap || !email || !password || !konfirmasi_password || !nama_agen || !sold_to || !wilayah) {
       return NextResponse.json({ success: false, message: 'Semua field wajib diisi.' }, { status: 400 })
     }
@@ -183,14 +217,7 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Cek email sudah terdaftar & verified ---
-    const { data: existingVerified } = await supabase
-      .from('agen_account')
-      .select('id, is_verified')
-      .eq('email', email)
-      .eq('is_verified', true)
-      .maybeSingle()
-
-    if (existingVerified) {
+    if (existingAccount?.is_verified) {
       return NextResponse.json({ success: false, message: 'Email sudah terdaftar. Silakan login.' }, { status: 409 })
     }
 

@@ -1,11 +1,11 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Login',
-  description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola dan memonitor data pangkalan secara efisien.',
+  title: 'Masuk',
+  description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola armada dan memonitor data pangkalan secara efisien dan real-time.',
   openGraph: {
-    title: 'Login - Agen LPG',
-    description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola dan memonitor data pangkalan secara efisien.',
+    title: 'Masuk - Agen LPG',
+    description: 'Masuk ke Dasbor Sistem Agen LPG untuk mengelola armada dan memonitor data pangkalan secara efisien dan real-time.',
   }
 }
 

@@ -226,7 +226,7 @@ export default function ArmadaPage() {
                 {/* 16:9 Image Thumbnail */}
                 <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', marginBottom: 12, background: 'var(--bg-muted)', position: 'relative' }}>
                   {a.foto_kendaraan ? (
-                    <Image src={a.foto_kendaraan} alt={a.no_plat} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                    <Image src={a.foto_kendaraan} alt={a.no_plat} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} unoptimized={true} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Truck size={32} color="var(--text-muted)" />

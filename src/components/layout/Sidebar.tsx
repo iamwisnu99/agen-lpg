@@ -27,7 +27,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard',      href: '/',           icon: LayoutDashboard },
+  { label: 'Dashboard',      href: '/dashboard',  icon: LayoutDashboard },
   { label: 'Peta Monitoring', href: '/peta',       icon: MapPin },
   { label: 'Data Pangkalan', href: '/pangkalan',   icon: Building2 },
   { label: 'Data Armada',    href: '/armada',      icon: Truck },
@@ -100,7 +100,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="sidebar-logo" style={{ flexDirection: 'column', justifyContent: 'center', gap: 16, padding: '32px 16px 24px' }}>
         <div style={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <Image src="/icons/favicon-96x96.png" alt="Logo CWS" fill style={{ objectFit: 'contain' }} />
+          <Image src="/icons/favicon-96x96.png" alt="Logo CWS" fill sizes="32px" priority style={{ objectFit: 'contain' }} />
         </div>
         <div style={{ textAlign: 'center', width: '100%' }}>
           <div className="text-sm font-bold" style={{ color: 'var(--text-primary)', lineHeight: 1.5, wordWrap: 'break-word' }}>

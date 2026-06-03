@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
 
   // Protected dashboard routes
   const isDashboard =
-    request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/pangkalan') ||
     request.nextUrl.pathname.startsWith('/peta') ||
     request.nextUrl.pathname.startsWith('/aktivitas') ||
@@ -53,10 +53,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from login/register
-  if (user && isAuthPage) {
+  // Redirect authenticated users away from login/register/landing
+  const isLandingPage = request.nextUrl.pathname === '/'
+  if (user && (isAuthPage || isLandingPage)) {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

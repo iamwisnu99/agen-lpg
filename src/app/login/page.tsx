@@ -40,7 +40,7 @@ export default function LoginPage() {
       }
 
       toast.success('Login berhasil! Selamat datang.')
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       toast.error('Terjadi kesalahan. Coba lagi.')
@@ -93,7 +93,7 @@ export default function LoginPage() {
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <div style={{ width: 96, height: 96, margin: '0 auto 16px', position: 'relative' }}>
-              <Image src="/icons/favicon-96x96.png" alt="Agen LPG Logo" fill style={{ objectFit: 'contain' }} />
+              <Image src="/icons/favicon-96x96.png" alt="Agen LPG Logo" fill sizes="96px" priority style={{ objectFit: 'contain' }} />
             </div>
             <h2 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
               Masuk ke Akun

@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', ''])
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   // Form state
   const [form, setForm] = useState({
@@ -74,11 +75,11 @@ export default function RegisterPage() {
       const res = await fetch('/api/register/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, agreedToTerms }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) {
-        toast.error(data.message || 'Gagal mengirim OTP')
+        toast.error(data.message || 'Gagal mengirim OTP', { duration: 5000 })
         return
       }
       toast.success('Kode OTP telah dikirim ke email Anda!')
@@ -276,7 +277,7 @@ export default function RegisterPage() {
             {/* Logo */}
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
               <div style={{ width: 56, height: 56, margin: '0 auto 12px', position: 'relative' }}>
-                <Image src="/icons/favicon-96x96.png" alt="Logo" fill style={{ objectFit: 'contain' }} />
+                <Image src="/icons/favicon-96x96.png" alt="Logo" fill sizes="48px" priority style={{ objectFit: 'contain' }} />
               </div>
               <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Buat Akun Baru</h2>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Sistem Manajemen Pangkalan LPG 3Kg</p>
@@ -373,11 +374,27 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
+                <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--bg-muted)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border-default)' }}>
+                  <input 
+                    type="checkbox" 
+                    id="termsCheck" 
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer', accentColor: '#16a34a' }}
+                  />
+                  <label htmlFor="termsCheck" style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, cursor: 'pointer' }}>
+                    Saya telah Membaca, Memahami, dan Menyetujui{' '}
+                    <Link href="/legal/syarat-ketentuan" target="_blank" style={{ color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>Syarat & Ketentuan</Link>
+                    {' '}dan{' '}
+                    <Link href="/legal/privasi" target="_blank" style={{ color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>Kebijakan Privasi</Link>
+                  </label>
+                </div>
+
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button className="reg-btn-secondary" style={{ flex: 0.4 }} onClick={() => goToStep('step1', 'back')}>
                     <ChevronLeft size={18} />
                   </button>
-                  <button className="reg-btn-primary" style={{ flex: 1 }} onClick={handleSendOTP} disabled={loading}>
+                  <button className="reg-btn-primary" style={{ flex: 1 }} onClick={handleSendOTP} disabled={!agreedToTerms || loading}>
                     {loading ? <><Loader2 size={18} className="animate-spin" /> Mengirim...</> : <>Kirim OTP <ChevronRight size={18} /></>}
                   </button>
                 </div>
@@ -454,14 +471,7 @@ export default function RegisterPage() {
 
           </div>
 
-          {/* Footer */}
-          <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>
-            <p>© {new Date().getFullYear()} Agen LPG. All Rights Reserved.</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
-              <span>Made by</span>
-              <Image src="/primadev.png" alt="PrimaDev" width={80} height={22} style={{ objectFit: 'contain' }} />
-            </div>
-          </div>
+
         </div>
       </div>
     </>

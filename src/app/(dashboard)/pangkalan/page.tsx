@@ -440,18 +440,28 @@ export default function PangkalanPage() {
                   >
                     <ChevronLeft size={14} />
                   </button>
-                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                    const p = Math.max(1, Math.min(page - 2 + idx, totalPages - (Math.min(5, totalPages) - 1 - idx)))
-                    return (
+                  {(() => {
+                    let range = [];
+                    if (totalPages <= 5) {
+                      range = Array.from({ length: totalPages }, (_, i) => i + 1);
+                    } else if (page <= 3) {
+                      range = [1, 2, 3, 4, 5];
+                    } else if (page >= totalPages - 2) {
+                      range = [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+                    } else {
+                      range = [page - 2, page - 1, page, page + 1, page + 2];
+                    }
+                    return range.map((p) => (
                       <button
                         key={p}
                         className={`pagination-btn ${page === p ? 'active' : ''}`}
                         onClick={() => setPage(p)}
+                        style={page === p ? { background: '#16a34a', color: 'white', borderColor: '#16a34a' } : {}}
                       >
                         {p}
                       </button>
-                    )
-                  })}
+                    ));
+                  })()}
                   <button
                     className="pagination-btn"
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: 'Agen LPG - Monitoring Pangkalan',
     template: 'Agen LPG - %s',
   },
-  description: 'Aplikasi resmi untuk sistem manajemen data Pangkalan LPG 3Kg, laporan harian, dan monitoring penyaluran Agen LPG Jakarta Barat.',
+  description: 'Platform digital inovatif untuk mempermudah Agen LPG 3KG dalam melakukan monitoring pangkalan dan armada secara real-time, aman, dan efisien.',
   keywords: ['LPG', 'pangkalan', 'agen lpg', 'manajemen', 'Jakarta Barat', 'cahaya wanodya sejati', 'sistem LPG 3kg', 'monitoring lpg'],
   authors: [{ name: 'Agen LPG Jakarta Barat' }],
   creator: 'PrimaDev',
