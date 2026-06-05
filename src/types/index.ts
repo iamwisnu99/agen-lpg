@@ -49,6 +49,7 @@ export interface Pangkalan {
   status: StatusPangkalan
   catatan_admin: string | null
   foto_lengkap: boolean
+  apar_expired_at: string | null
   created_by: string | null
   updated_by: string | null
   created_at: string

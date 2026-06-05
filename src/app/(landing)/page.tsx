@@ -52,7 +52,7 @@ export default function LandingPage() {
               Tujuan Utama Sistem
             </h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 32 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 32 }}>
               {/* Card 1 */}
               <div className="card" style={{ padding: 32, background: 'var(--bg-default)', borderRadius: 24, border: '1px solid var(--border-default)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
                 <div style={{ width: 56, height: 56, background: 'rgba(22, 163, 74, 0.1)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
@@ -138,7 +138,7 @@ export default function LandingPage() {
         {/* Why Choose Us Section */}
         <section style={{ padding: '100px 20px', background: 'var(--bg-surface)' }}>
           <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 60, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 60, alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 24, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                   Mengapa Memilih Sistem Kami?
@@ -265,8 +265,8 @@ export default function LandingPage() {
             <p style={{ color: '#15803d', fontSize: 18, marginBottom: 40, maxWidth: 600, margin: '0 auto' }}>
               Bergabunglah sekarang dan rasakan kemudahan mengelola pangkalan serta armada operasional dalam satu platform yang terintegrasi.
             </p>
-            <Link href="/register" className="btn btn-primary" style={{ padding: '18px 48px', fontSize: 18, borderRadius: 16, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: '0 10px 25px rgba(22, 163, 74, 0.3)' }}>
-              Daftar Sekarang Secara Gratis <ChevronRight size={22} />
+            <Link href="/register" className="btn btn-primary" style={{ padding: '16px 24px', fontSize: 16, borderRadius: 16, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 10px 25px rgba(22, 163, 74, 0.3)', width: '100%', maxWidth: '320px', whiteSpace: 'normal' }}>
+              Daftar Sekarang Secara Gratis <ChevronRight size={20} style={{ flexShrink: 0 }} />
             </Link>
           </div>
         </section>

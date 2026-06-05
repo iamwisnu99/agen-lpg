@@ -282,6 +282,7 @@ export default function DetailPangkalanPage() {
               pangkalanId={id}
               pangkalanNama={pangkalan.nama_pangkalan}
               existingPhotos={existingPhotos}
+              aparExpiredAt={pangkalan.apar_expired_at}
               onUpdate={fetchData}
             />
           </div>

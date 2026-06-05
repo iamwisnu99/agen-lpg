@@ -9,11 +9,15 @@ import { logAktivitas } from '@/lib/db'
 import toast from 'react-hot-toast'
 import imageCompression from 'browser-image-compression'
 import Cropper from 'react-easy-crop'
+import { createClient } from '@/lib/supabase/client'
+import { getDaysRemaining, formatDate } from '@/lib/utils'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 interface PhotoUploadProps {
   pangkalanId: string
   pangkalanNama: string
   existingPhotos?: { jenis_foto: string; url: string; id: string; storage_path: string; uploaded_at: string; pangkalan_id: string; file_name: string | null; file_size: number | null; uploaded_by: string | null }[]
+  aparExpiredAt?: string | null
   onUpdate?: () => void
 }
 
@@ -116,8 +120,15 @@ async function getCroppedImg(
 
 const EMPTY_PHOTOS: any[] = []
 
-export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY_PHOTOS, onUpdate }: PhotoUploadProps) {
+export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY_PHOTOS, aparExpiredAt, onUpdate }: PhotoUploadProps) {
   const [localPhotos, setLocalPhotos] = useState(existingPhotos)
+  const [localAparExpiredAt, setLocalAparExpiredAt] = useState(aparExpiredAt)
+  const [aparDateInput, setAparDateInput] = useState('')
+  const [aparDateUpdateModal, setAparDateUpdateModal] = useState(false)
+  const [updatingApar, setUpdatingApar] = useState(false)
+  
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<JenisFoto | null>(null)
   
   // Sync local photos if parent updates them
   useEffect(() => {
@@ -130,6 +141,10 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
       return prev
     })
   }, [existingPhotos])
+
+  useEffect(() => {
+    setLocalAparExpiredAt(aparExpiredAt)
+  }, [aparExpiredAt])
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -189,6 +204,12 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
       // 4. Upload to Supabase
       const newPhoto = await uploadFoto(pangkalanId, jenis, watermarked, pangkalanNama)
 
+      if (jenis === 'apar' && aparDateInput) {
+        const supabase = createClient()
+        await supabase.from('pangkalan').update({ apar_expired_at: aparDateInput }).eq('id', pangkalanId)
+        setLocalAparExpiredAt(aparDateInput)
+      }
+
       await logAktivitas({
         aksi: 'upload_foto',
         entitas: 'foto_pangkalan',
@@ -218,12 +239,19 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
     }
   }
 
-  const handleDelete = async (jenis: JenisFoto) => {
+  const handleDeleteClick = (jenis: JenisFoto) => {
+    setDeleteTarget(jenis)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    const jenis = deleteTarget
     const photo = getExistingPhoto(jenis)
     if (!photo) return
-    if (!confirm(`Hapus foto ${JENIS_FOTO_LABELS[jenis]}? Anda harus mengupload ulang foto jika dihapus.`)) return
 
     setDeleting(jenis)
+    setDeleteModalOpen(false)
     try {
       await deleteFoto(photo as Parameters<typeof deleteFoto>[0])
       await logAktivitas({
@@ -242,6 +270,27 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
       toast.error('Gagal menghapus foto')
     } finally {
       setDeleting(null)
+      setDeleteTarget(null)
+    }
+  }
+
+  const handleUpdateAparDate = async () => {
+    if (!aparDateInput) {
+      toast.error('Silakan isi tanggal kedaluwarsa')
+      return
+    }
+    setUpdatingApar(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('pangkalan').update({ apar_expired_at: aparDateInput }).eq('id', pangkalanId)
+      setLocalAparExpiredAt(aparDateInput)
+      toast.success('Tanggal kedaluwarsa APAR berhasil diperbarui')
+      setAparDateUpdateModal(false)
+      onUpdate?.()
+    } catch (err) {
+      toast.error('Gagal memperbarui tanggal APAR')
+    } finally {
+      setUpdatingApar(false)
     }
   }
 
@@ -380,7 +429,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
-                        onClick={e => { e.stopPropagation(); handleDelete(jenis) }}
+                        onClick={e => { e.stopPropagation(); handleDeleteClick(jenis) }}
                         disabled={isDeleting}
                         title="Hapus foto ini untuk mengupload ulang"
                       >
@@ -426,6 +475,31 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
               >
                 {existing ? '✓ ' : ''}{JENIS_FOTO_LABELS[jenis]}
               </div>
+
+              {/* APAR Expiry Logic */}
+              {jenis === 'apar' && existing && localAparExpiredAt && (
+                <div style={{ marginTop: 8, padding: '8px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Kedaluwarsa APAR:</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {formatDate(localAparExpiredAt)}
+                  </div>
+                  {getDaysRemaining(localAparExpiredAt) <= 30 && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 10, color: getDaysRemaining(localAparExpiredAt) < 0 ? '#ef4444' : '#f59e0b', marginBottom: 4, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <AlertCircle size={12} />
+                        {getDaysRemaining(localAparExpiredAt) < 0 ? 'Sudah Kedaluwarsa!' : `Tinggal ${getDaysRemaining(localAparExpiredAt)} hari`}
+                      </div>
+                      <button
+                        className="btn btn-sm"
+                        style={{ width: '100%', fontSize: 11, padding: '4px 8px', background: 'rgba(22,163,74,0.1)', color: '#16a34a' }}
+                        onClick={(e) => { e.stopPropagation(); setAparDateUpdateModal(true); setAparDateInput('') }}
+                      >
+                        Sudah Update
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
@@ -468,6 +542,20 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                 />
               </div>
               <div style={{ padding: 16 }}>
+                {preview.jenis === 'apar' && (
+                  <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Tanggal Kedaluwarsa APAR <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="date"
+                      className="input input-bordered"
+                      value={aparDateInput}
+                      onChange={e => setAparDateInput(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
                 <input
                   type="range"
                   value={zoom}
@@ -505,7 +593,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                 type="button"
                 className="btn btn-primary"
                 onClick={handleUpload}
-                disabled={!!uploading}
+                disabled={!!uploading || (preview.jenis === 'apar' && !aparDateInput)}
               >
                 {uploading ? (
                   <><Loader2 size={14} className="animate-spin" /> Mengupload...</>
@@ -550,6 +638,51 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
           </div>
         </div>
       )}
+
+      {/* APAR Date Update Modal */}
+      {aparDateUpdateModal && (
+        <div className="modal-overlay" onClick={() => setAparDateUpdateModal(false)}>
+          <div className="modal" style={{ maxWidth: 400, width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Update Tanggal Kedaluwarsa APAR</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Masukkan tanggal kedaluwarsa baru</div>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setAparDateUpdateModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>Tanggal Baru</label>
+              <input
+                type="date"
+                className="input input-bordered"
+                style={{ width: '100%' }}
+                value={aparDateInput}
+                onChange={e => setAparDateInput(e.target.value)}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setAparDateUpdateModal(false)}>Batal</button>
+              <button className="btn btn-primary" onClick={handleUpdateAparDate} disabled={updatingApar || !aparDateInput}>
+                {updatingApar ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</> : 'Simpan Tanggal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DeleteConfirmModal
+        open={deleteModalOpen}
+        title="Hapus Foto"
+        description={deleteTarget ? `Apakah Anda yakin ingin menghapus foto ${JENIS_FOTO_LABELS[deleteTarget]}? Anda harus mengupload ulang foto jika dihapus.` : ''}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false)
+          setDeleteTarget(null)
+        }}
+        loading={!!deleting}
+      />
 
       <style jsx global>{`
         .photo-container {
