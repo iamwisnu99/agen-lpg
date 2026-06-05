@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
-import { Upload, Camera, Trash2, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react'
+import { Upload, Camera, Trash2, CheckCircle2, AlertCircle, Loader2, X, Image as ImageIcon } from 'lucide-react'
 import { JENIS_FOTO_LABELS, JENIS_FOTO_LIST, type JenisFoto } from '@/types'
 import { uploadFoto, deleteFoto } from '@/lib/db'
 import { logAktivitas } from '@/lib/db'
@@ -11,6 +11,9 @@ import imageCompression from 'browser-image-compression'
 import Cropper from 'react-easy-crop'
 import { createClient } from '@/lib/supabase/client'
 import { getDaysRemaining, formatDate } from '@/lib/utils'
+import { format } from 'date-fns'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 
 interface PhotoUploadProps {
@@ -33,14 +36,14 @@ const addWatermark = async (file: File, pangkalanNama: string): Promise<File> =>
       ctx.drawImage(img, 0, 0)
 
       // Watermark background
-      const watermarkH = 60
+      const watermarkH = 70
       ctx.fillStyle = 'rgba(0,0,0,0.55)'
       ctx.fillRect(0, img.height - watermarkH, img.width, watermarkH)
 
       // Watermark text
       ctx.fillStyle = 'white'
       ctx.font = `bold ${Math.max(14, img.width / 30)}px Arial`
-      ctx.fillText(pangkalanNama, 12, img.height - watermarkH + 22)
+      ctx.fillText(pangkalanNama, 12, img.height - watermarkH + 28)
 
       const now = new Date()
       const dateStr = now.toLocaleDateString('id-ID', {
@@ -48,14 +51,7 @@ const addWatermark = async (file: File, pangkalanNama: string): Promise<File> =>
         hour: '2-digit', minute: '2-digit',
       })
       ctx.font = `${Math.max(12, img.width / 36)}px Arial`
-      ctx.fillText(dateStr, 12, img.height - watermarkH + 46)
-
-      // Logo CWS
-      ctx.fillStyle = '#22c55e'
-      ctx.font = `bold ${Math.max(12, img.width / 36)}px Arial`
-      ctx.textAlign = 'right'
-      ctx.fillText('Agen LPG', img.width - 12, img.height - watermarkH + 22)
-      ctx.textAlign = 'left'
+      ctx.fillText(dateStr, 12, img.height - watermarkH + 54)
 
       canvas.toBlob((blob) => {
         URL.revokeObjectURL(url)
@@ -123,7 +119,7 @@ const EMPTY_PHOTOS: any[] = []
 export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY_PHOTOS, aparExpiredAt, onUpdate }: PhotoUploadProps) {
   const [localPhotos, setLocalPhotos] = useState(existingPhotos)
   const [localAparExpiredAt, setLocalAparExpiredAt] = useState(aparExpiredAt)
-  const [aparDateInput, setAparDateInput] = useState('')
+  const [aparDateInput, setAparDateInput] = useState<Date | null>(null)
   const [aparDateUpdateModal, setAparDateUpdateModal] = useState(false)
   const [updatingApar, setUpdatingApar] = useState(false)
   
@@ -150,6 +146,66 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
   const [deleting, setDeleting] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeJenis, setActiveJenis] = useState<JenisFoto | null>(null)
+  
+  const [uploadMethodTarget, setUploadMethodTarget] = useState<JenisFoto | null>(null)
+  const [cameraTarget, setCameraTarget] = useState<JenisFoto | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [cameraLoading, setCameraLoading] = useState(false)
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => stopCamera()
+  }, [])
+
+  const startCamera = async (jenis: JenisFoto) => {
+    setUploadMethodTarget(null)
+    setCameraTarget(jenis)
+    setCameraLoading(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengakses kamera. Pastikan izin kamera diberikan.')
+      setCameraTarget(null)
+    } finally {
+      setCameraLoading(false)
+    }
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !cameraTarget) return
+    const video = videoRef.current
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth || 1920
+    canvas.height = video.videoHeight || 1080
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
+          handleFileSelect(cameraTarget, file)
+          stopCamera()
+          setCameraTarget(null)
+        }
+      }, 'image/jpeg', 0.95)
+    }
+  }
+
   const [preview, setPreview] = useState<{ jenis: JenisFoto; url: string; file: File } | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<{ url: string; title: string } | null>(null)
 
@@ -206,8 +262,9 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
 
       if (jenis === 'apar' && aparDateInput) {
         const supabase = createClient()
-        await supabase.from('pangkalan').update({ apar_expired_at: aparDateInput }).eq('id', pangkalanId)
-        setLocalAparExpiredAt(aparDateInput)
+        const formattedDate = format(aparDateInput, 'yyyy-MM-dd')
+        await supabase.from('pangkalan').update({ apar_expired_at: formattedDate }).eq('id', pangkalanId)
+        setLocalAparExpiredAt(formattedDate)
       }
 
       await logAktivitas({
@@ -281,9 +338,10 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
     }
     setUpdatingApar(true)
     try {
+      const formattedDate = format(aparDateInput, 'yyyy-MM-dd')
       const supabase = createClient()
-      await supabase.from('pangkalan').update({ apar_expired_at: aparDateInput }).eq('id', pangkalanId)
-      setLocalAparExpiredAt(aparDateInput)
+      await supabase.from('pangkalan').update({ apar_expired_at: formattedDate }).eq('id', pangkalanId)
+      setLocalAparExpiredAt(formattedDate)
       toast.success('Tanggal kedaluwarsa APAR berhasil diperbarui')
       setAparDateUpdateModal(false)
       onUpdate?.()
@@ -295,6 +353,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
   }
 
   const openFileInput = (jenis: JenisFoto) => {
+    setUploadMethodTarget(null)
     setActiveJenis(jenis)
     fileInputRef.current?.click()
   }
@@ -388,7 +447,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                   if (existing) {
                     setViewingPhoto({ url: existing.url, title: JENIS_FOTO_LABELS[jenis] })
                   } else {
-                    openFileInput(jenis)
+                    setUploadMethodTarget(jenis)
                   }
                 }}
                 className="photo-container"
@@ -492,7 +551,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                       <button
                         className="btn btn-sm"
                         style={{ width: '100%', fontSize: 11, padding: '4px 8px', background: 'rgba(22,163,74,0.1)', color: '#16a34a' }}
-                        onClick={(e) => { e.stopPropagation(); setAparDateUpdateModal(true); setAparDateInput('') }}
+                        onClick={(e) => { e.stopPropagation(); setAparDateUpdateModal(true); setAparDateInput(null) }}
                       >
                         Sudah Update
                       </button>
@@ -547,13 +606,19 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                     <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                       Tanggal Kedaluwarsa APAR <span style={{ color: '#ef4444' }}>*</span>
                     </label>
-                    <input
-                      type="date"
-                      className="input input-bordered"
-                      value={aparDateInput}
-                      onChange={e => setAparDateInput(e.target.value)}
-                      required
-                    />
+                    <div className="custom-datepicker-wrapper">
+                      <DatePicker
+                        selected={aparDateInput}
+                        onChange={(date: Date | null) => setAparDateInput(date)}
+                        className="input input-bordered w-full"
+                        dateFormat="dd/MM/yyyy"
+                        showMonthDropdown
+                        showYearDropdown
+                        dropdownMode="select"
+                        placeholderText="Pilih Tanggal..."
+                        required
+                      />
+                    </div>
                   </div>
                 )}
                 <input
@@ -627,12 +692,11 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
               {viewingPhoto.title}
             </div>
             <div className="viewer-image-wrapper">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={viewingPhoto.url}
                 alt={viewingPhoto.title}
-                fill
-                style={{ objectFit: 'contain' }}
-                unoptimized={true}
+                className="viewer-img"
               />
             </div>
           </div>
@@ -654,18 +718,89 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
             </div>
             <div className="modal-body">
               <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, display: 'block' }}>Tanggal Baru</label>
-              <input
-                type="date"
-                className="input input-bordered"
-                style={{ width: '100%' }}
-                value={aparDateInput}
-                onChange={e => setAparDateInput(e.target.value)}
-              />
+              <div className="custom-datepicker-wrapper">
+                <DatePicker
+                  selected={aparDateInput}
+                  onChange={(date: Date | null) => setAparDateInput(date)}
+                  className="input input-bordered w-full"
+                  dateFormat="dd/MM/yyyy"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  placeholderText="Pilih Tanggal..."
+                />
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setAparDateUpdateModal(false)}>Batal</button>
               <button className="btn btn-primary" onClick={handleUpdateAparDate} disabled={updatingApar || !aparDateInput}>
                 {updatingApar ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</> : 'Simpan Tanggal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Method Modal */}
+      {uploadMethodTarget && (
+        <div className="modal-overlay" onClick={() => setUploadMethodTarget(null)}>
+          <div className="modal" style={{ maxWidth: 360, width: '100%', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <div style={{ width: '100%' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Pilih Metode</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Bagaimana Anda ingin mengunggah foto?</div>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setUploadMethodTarget(null)} style={{ position: 'absolute', right: 16, top: 16 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '24px' }}>
+              <button className="btn btn-primary" style={{ padding: '16px', fontSize: 15, display: 'flex', justifyContent: 'center', gap: 8 }} onClick={() => startCamera(uploadMethodTarget)}>
+                <Camera size={20} /> Ambil Langsung
+              </button>
+              <button className="btn btn-secondary" style={{ padding: '16px', fontSize: 15, display: 'flex', justifyContent: 'center', gap: 8 }} onClick={() => {
+                const target = uploadMethodTarget
+                setUploadMethodTarget(null)
+                setActiveJenis(target)
+                fileInputRef.current?.click()
+              }}>
+                <ImageIcon size={20} /> Pilih dari Galeri
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Camera View */}
+      {cameraTarget && (
+        <div className="modal-overlay" style={{ background: '#000', zIndex: 10000 }}>
+          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(rgba(0,0,0,0.5), transparent)', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+              <div style={{ color: 'white', fontWeight: 600 }}>{JENIS_FOTO_LABELS[cameraTarget]}</div>
+              <button className="btn btn-ghost btn-icon" onClick={() => { stopCamera(); setCameraTarget(null) }} style={{ color: 'white' }}>
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              {cameraLoading && <Loader2 size={40} className="animate-spin" style={{ color: 'white', position: 'absolute' }} />}
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraLoading ? 'none' : 'block' }}
+                onLoadedMetadata={() => setCameraLoading(false)}
+              />
+            </div>
+
+            <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}>
+              <button 
+                onClick={capturePhoto}
+                style={{ 
+                  width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' 
+                }}
+              >
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'white' }} />
               </button>
             </div>
           </div>
@@ -696,15 +831,16 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
           pointer-events: none;
         }
         .photo-delete-btn {
-          opacity: 0;
-          transition: opacity 0.2s ease;
+          opacity: 0.9;
+          transition: all 0.2s ease;
         }
         
         .photo-container:hover .photo-dim-overlay {
-          background: rgba(0, 0, 0, 0.35);
+          background: rgba(0, 0, 0, 0.2);
         }
         .photo-container:hover .photo-delete-btn {
           opacity: 1;
+          transform: scale(1.05);
         }
 
         /* Photo Viewer Animations */
@@ -715,20 +851,27 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
         }
         .viewer-content {
           position: relative;
-          width: 90vw;
-          max-width: 1000px;
-          height: 85vh;
-          animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
           display: flex;
           flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         .viewer-image-wrapper {
           position: relative;
-          flex: 1;
-          width: 100%;
           border-radius: 8px;
           overflow: hidden;
           box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+          display: flex;
+          background: rgba(0,0,0,0.5);
+        }
+        .viewer-img {
+          max-width: 90vw;
+          max-height: 85vh;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+          display: block;
         }
         .viewer-close {
           position: absolute;
@@ -750,6 +893,11 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
           font-weight: 600;
           font-size: 16px;
           text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .custom-datepicker-wrapper .react-datepicker-wrapper,
+        .custom-datepicker-wrapper .react-datepicker__input-container {
+          width: 100%;
+          display: block;
         }
         @keyframes fadeIn {
           from { opacity: 0; }

@@ -2,6 +2,7 @@
 
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopNav } from '@/components/layout/TopNav'
+import { NotificationManager } from '@/components/NotificationManager'
 
 import { useState } from 'react'
 
@@ -14,6 +15,7 @@ export default function DashboardLayout({
 
   return (
     <div className="dashboard-layout">
+      <NotificationManager />
       <Sidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="dashboard-content">
         <TopNav onMenuClick={() => setSidebarOpen(true)} />

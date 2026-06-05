@@ -18,6 +18,8 @@ export interface Profile {
   role: string
   avatar_url: string | null
   phone: string | null
+  email_notif?: boolean
+  browser_notif?: boolean
   created_at: string
   updated_at: string
 }
