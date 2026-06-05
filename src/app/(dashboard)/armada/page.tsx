@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import { formatDate, debounce, getDaysRemaining } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { createClient } from '@/lib/supabase/client'
 import { CustomSelect } from '@/components/CustomSelect'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import Image from 'next/image'
@@ -23,16 +24,30 @@ export default function ArmadaPage() {
   const [armada, setArmada] = useState<Armada[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('semua')
+  const [filterStatus, setFilterStatus] = useState('Semua')
+  const [kopSurat, setKopSurat] = useState({
+    kop_nama_perusahaan: '', kop_alamat: '', kop_kontak: '', kop_logo_base64: ''
+  })
   const [page, setPage] = useState(1)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ id: string; no_plat: string; data: Armada } | null>(null)
+  const supabase = createClient()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('kop_nama_perusahaan, kop_alamat, kop_kontak, kop_logo_base64')
+          .eq('id', user.id)
+          .single()
+        if (profile) setKopSurat(profile as any)
+      }
+
       const data = await getArmadaList({
-        status: filterStatus === 'semua' ? undefined : filterStatus,
+        status: filterStatus === 'Semua' ? undefined : filterStatus,
         search: search || undefined,
       })
       setArmada(data)
@@ -50,31 +65,115 @@ export default function ArmadaPage() {
   }, [search, filterStatus])
 
   const handleExportExcel = () => {
-    const dataToExport = armada.map((a, i) => ({
-      No: i + 1,
-      'No. Plat': a.no_plat,
-      'Nama Sopir': a.nama_sopir,
-      'Pajak 1 Tahun': a.jatuh_tempo_pajak_1_tahun ? formatDate(a.jatuh_tempo_pajak_1_tahun) : '-',
-      'Pajak 5 Tahun': a.jatuh_tempo_plat_5_tahun ? formatDate(a.jatuh_tempo_plat_5_tahun) : '-',
-      'Status': a.status.toUpperCase(),
-      'Tgl Daftar': formatDate(a.created_at)
-    }))
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport)
     const wb = XLSX.utils.book_new()
+    const rows: any[] = []
+    
+    // Kop Surat
+    if (kopSurat.kop_nama_perusahaan) {
+      rows.push([{ v: kopSurat.kop_nama_perusahaan, s: { font: { bold: true, sz: 14 } } }])
+      rows.push([{ v: kopSurat.kop_alamat || '' }])
+      rows.push([{ v: kopSurat.kop_kontak || '' }])
+      rows.push([]) // Spacing
+    }
+
+    rows.push([{ v: 'Laporan Data Armada', s: { font: { bold: true, sz: 12 } } }])
+    rows.push([{ v: `Dicetak pada: ${formatDate(new Date().toISOString())}` }])
+    rows.push([]) // Spacing
+
+    // Header
+    const headers = ['No', 'No. Plat', 'Nama Sopir', 'Pajak 1 Tahun', 'Pajak 5 Tahun', 'Status']
+    const headerStyle = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "16A34A" } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }
+    }
+    rows.push(headers.map(h => ({ v: h, s: headerStyle })))
+
+    // Body
+    const bodyStyle = { border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } }
+    const centerStyle = { ...bodyStyle, alignment: { horizontal: "center" } }
+
+    armada.forEach((a, i) => {
+      rows.push([
+        { v: i + 1, s: centerStyle },
+        { v: a.no_plat, s: centerStyle },
+        { v: a.nama_sopir, s: bodyStyle },
+        { v: a.jatuh_tempo_pajak_1_tahun ? formatDate(a.jatuh_tempo_pajak_1_tahun) : '-', s: centerStyle },
+        { v: a.jatuh_tempo_plat_5_tahun ? formatDate(a.jatuh_tempo_plat_5_tahun) : '-', s: centerStyle },
+        { v: a.status.toUpperCase(), s: centerStyle }
+      ])
+    })
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+
+    // Merges
+    const mergeCount = headers.length - 1
+    if (kopSurat.kop_nama_perusahaan) {
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: mergeCount } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: mergeCount } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: mergeCount } }
+      ]
+    } else {
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } }
+      ]
+    }
+
+    // Column widths
+    ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }]
+
     XLSX.utils.book_append_sheet(wb, ws, 'Data Armada')
-    XLSX.writeFile(wb, `Data_Armada_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    const fileNameAgen = kopSurat.kop_nama_perusahaan ? ` - ${kopSurat.kop_nama_perusahaan}` : ''
+    XLSX.writeFile(wb, `Data Armada${fileNameAgen}.xlsx`)
     toast.success('Data berhasil diekspor ke Excel')
   }
 
   const handleExportPDF = () => {
     const doc = new jsPDF()
-    doc.text('Data Armada', 14, 15)
-    doc.setFontSize(10)
-    doc.text(`Tanggal Ekspor: ${formatDate(new Date().toISOString())}`, 14, 22)
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let startY = 15
 
+    // KOP SURAT
+    if (kopSurat.kop_nama_perusahaan || kopSurat.kop_logo_base64) {
+      let textStartX = 14
+      if (kopSurat.kop_logo_base64) {
+        doc.addImage(kopSurat.kop_logo_base64, 'PNG', 14, 10, 22, 22)
+        textStartX = 40 // 14 + 22 + 4 spacing
+      }
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text(kopSurat.kop_nama_perusahaan || 'NAMA PERUSAHAAN', textStartX, 16, { align: 'left' })
+      
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(kopSurat.kop_alamat || '', textStartX, 22, { align: 'left' })
+      doc.text(kopSurat.kop_kontak || '', textStartX, 28, { align: 'left' })
+
+      // Double Line
+      doc.setLineWidth(0.5)
+      doc.line(14, 34, pageWidth - 14, 34)
+      doc.setLineWidth(1.2)
+      doc.line(14, 36, pageWidth - 14, 36)
+      
+      startY = 46
+    }
+
+    // TITLE
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Laporan Data Armada', 14, startY)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Dicetak pada: ${formatDate(new Date().toISOString())}`, 14, startY + 6)
+
+    // TABLE
     autoTable(doc, {
-      startY: 30,
+      startY: startY + 12,
       head: [['No', 'No. Plat', 'Sopir', 'Pajak 1 Thn', 'Pajak 5 Thn', 'Status']],
       body: armada.map((a, i) => [
         i + 1,
@@ -84,12 +183,23 @@ export default function ArmadaPage() {
         a.jatuh_tempo_plat_5_tahun ? formatDate(a.jatuh_tempo_plat_5_tahun) : '-',
         a.status.toUpperCase(),
       ]),
-      styles: { fontSize: 8, cellPadding: 4 },
-      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
+      styles: { fontSize: 9, cellPadding: 5, textColor: [40, 40, 40] },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
+      bodyStyles: { lineWidth: 0.1, lineColor: [220, 220, 220] },
+      alternateRowStyles: { fillColor: [252, 252, 252] },
     })
 
-    doc.save(`Data_Armada_${new Date().toISOString().slice(0, 10)}.pdf`)
+    // FOOTER (Page Numbers)
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.setTextColor(150)
+      doc.text(`Halaman ${i} dari ${pageCount}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 10, { align: 'right' })
+    }
+
+    const fileNameAgen = kopSurat.kop_nama_perusahaan ? ` - ${kopSurat.kop_nama_perusahaan}` : ''
+    doc.save(`Data Armada${fileNameAgen}.pdf`)
     toast.success('Data berhasil diekspor ke PDF')
   }
 

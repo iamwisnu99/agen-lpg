@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer'
 import bcrypt from 'bcryptjs'
 import { createClient } from '@supabase/supabase-js'
 import path from 'path'
+import wilayahData from '@/data/wilayah.json'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -214,6 +215,23 @@ export async function POST(request: NextRequest) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return NextResponse.json({ success: false, message: 'Format email tidak valid.' }, { status: 400 })
+    }
+
+    // --- Validasi Wilayah Sesuai Database ---
+    if (!wilayahData.includes(wilayah)) {
+      return NextResponse.json({ success: false, message: 'Wilayah yang dimasukkan tidak valid. Silakan pilih dari daftar dropdown yang tersedia.' }, { status: 400 })
+    }
+
+    // --- Validasi Duplikat Sold To ---
+    const { data: existingSoldTo } = await supabase
+      .from('agen_account')
+      .select('id, nama_agen, wilayah')
+      .eq('sold_to', sold_to)
+      .eq('is_verified', true)
+      .limit(1)
+
+    if (existingSoldTo && existingSoldTo.length > 0) {
+      return NextResponse.json({ success: false, message: `Pendaftaran ditolak: Nomor Sold To tersebut sudah terdaftar di sistem kami.` }, { status: 409 })
     }
 
     // --- Cek email sudah terdaftar & verified ---

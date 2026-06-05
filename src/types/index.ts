@@ -20,6 +20,10 @@ export interface Profile {
   phone: string | null
   email_notif?: boolean
   browser_notif?: boolean
+  kop_nama_perusahaan?: string
+  kop_alamat?: string
+  kop_kontak?: string
+  kop_logo_base64?: string
   created_at: string
   updated_at: string
 }

@@ -21,7 +21,7 @@ export async function getPangkalanList(filters?: {
       *,
       foto_pangkalan (*)
     `)
-    .order('created_at', { ascending: false })
+    .order('nama_pangkalan', { ascending: true })
 
   if (user) {
     query = query.eq('created_by', user.id)

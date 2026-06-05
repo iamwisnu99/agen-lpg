@@ -14,7 +14,7 @@ import { formatDate, debounce } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { logAktivitas } from '@/lib/db'
 import toast from 'react-hot-toast'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { CustomSelect } from '@/components/CustomSelect'
@@ -32,11 +32,24 @@ export default function PangkalanPage() {
   const [kecamatanList, setKecamatanList] = useState<string[]>([])
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [wilayah, setWilayah] = useState('Jakarta Barat') // Default
+  const [kopSurat, setKopSurat] = useState({
+    kop_nama_perusahaan: '', kop_alamat: '', kop_kontak: '', kop_logo_base64: ''
+  })
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('kop_nama_perusahaan, kop_alamat, kop_kontak, kop_logo_base64')
+          .eq('id', user.id)
+          .single()
+        if (profile) setKopSurat(profile as any)
+      }
+
       const data = await getPangkalanList({
         status: filterStatus === 'semua' ? undefined : filterStatus,
         kecamatan: filterKecamatan === 'semua' ? undefined : filterKecamatan,
@@ -110,48 +123,120 @@ export default function PangkalanPage() {
   }
 
   const handleExportExcel = () => {
-    const data = pangkalan.map((p, i) => ({
-      No: i + 1,
-      'Nama Pangkalan': p.nama_pangkalan,
-      'Nama Pemilik': p.nama_pemilik,
-      'ID Registrasi': p.id_registrasi,
-      'No. HP': p.nomor_hp,
-      'Kecamatan': p.kecamatan,
-      'Kelurahan': p.kelurahan,
-      'Alamat': p.alamat,
-      'Status': p.status,
-      'Foto Lengkap': p.foto_lengkap ? 'Lengkap' : 'Belum Lengkap',
-      'Latitude': p.latitude || '',
-      'Longitude': p.longitude || '',
-      'Tgl Daftar': formatDate(p.created_at),
-    }))
-
-    const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Data Pangkalan')
+    const rows: any[] = []
+    
+    // Kop Surat
+    if (kopSurat.kop_nama_perusahaan) {
+      rows.push([{ v: kopSurat.kop_nama_perusahaan, s: { font: { bold: true, sz: 14 } } }])
+      rows.push([{ v: kopSurat.kop_alamat || '' }])
+      rows.push([{ v: kopSurat.kop_kontak || '' }])
+      rows.push([]) // Spacing
+    }
+
+    rows.push([{ v: `Laporan Data Pangkalan LPG 3Kg - ${wilayah}`, s: { font: { bold: true, sz: 12 } } }])
+    rows.push([{ v: `Dicetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}` }])
+    rows.push([]) // Spacing
+
+    // Header
+    const headers = ['No', 'Nama Pangkalan', 'Nama Pemilik', 'ID Registrasi', 'No. HP', 'Kecamatan', 'Kelurahan', 'Status', 'Kelengkapan']
+    const headerStyle = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "16A34A" } },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }
+    }
+    rows.push(headers.map(h => ({ v: h, s: headerStyle })))
+
+    // Body
+    const bodyStyle = { border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } }
+    const centerStyle = { ...bodyStyle, alignment: { horizontal: "center" } }
+
+    pangkalan.forEach((p, i) => {
+      rows.push([
+        { v: i + 1, s: centerStyle },
+        { v: p.nama_pangkalan, s: bodyStyle },
+        { v: p.nama_pemilik, s: bodyStyle },
+        { v: p.id_registrasi, s: centerStyle },
+        { v: p.nomor_hp, s: centerStyle },
+        { v: p.kecamatan, s: centerStyle },
+        { v: p.kelurahan, s: centerStyle },
+        { v: p.status.toUpperCase(), s: centerStyle },
+        { v: p.foto_lengkap ? 'Lengkap' : 'Belum Lengkap', s: centerStyle }
+      ])
+    })
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+
+    // Merges
+    const mergeCount = headers.length - 1
+    if (kopSurat.kop_nama_perusahaan) {
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: mergeCount } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: mergeCount } },
+        { s: { r: 5, c: 0 }, e: { r: 5, c: mergeCount } }
+      ]
+    } else {
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } }
+      ]
+    }
+
+    // Column widths
     ws['!cols'] = [
-      { wch: 5 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
-      { wch: 15 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 14 },
-      { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 5 }, { wch: 30 }, { wch: 25 }, { wch: 20 }, { wch: 15 },
+      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
     ]
-    XLSX.writeFile(wb, `Data_Pangkalan_CWS_${new Date().toISOString().slice(0,10)}.xlsx`)
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Data Pangkalan')
+    const fileNameAgen = kopSurat.kop_nama_perusahaan ? ` - ${kopSurat.kop_nama_perusahaan}` : ''
+    XLSX.writeFile(wb, `Data Pangkalan${fileNameAgen}.xlsx`)
     toast.success('Data berhasil diekspor ke Excel')
   }
 
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    let startY = 15
 
-    doc.setFontSize(16)
+    // KOP SURAT
+    if (kopSurat.kop_nama_perusahaan || kopSurat.kop_logo_base64) {
+      let textStartX = 14
+      if (kopSurat.kop_logo_base64) {
+        doc.addImage(kopSurat.kop_logo_base64, 'PNG', 14, 10, 22, 22)
+        textStartX = 40 // 14 + 22 + 4 spacing
+      }
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text(kopSurat.kop_nama_perusahaan || 'NAMA PERUSAHAAN', textStartX, 16, { align: 'left' })
+      
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.text(kopSurat.kop_alamat || '', textStartX, 22, { align: 'left' })
+      doc.text(kopSurat.kop_kontak || '', textStartX, 28, { align: 'left' })
+
+      // Double Line
+      doc.setLineWidth(0.5)
+      doc.line(14, 34, pageWidth - 14, 34)
+      doc.setLineWidth(1.2)
+      doc.line(14, 36, pageWidth - 14, 36)
+      
+      startY = 46
+    }
+
+    doc.setFontSize(12)
     doc.setFont('helvetica', 'bold')
-    doc.text('AGEN LPG', 14, 16)
-    doc.setFontSize(11)
+    doc.text(`Data Pangkalan LPG 3Kg - ${wilayah}`, 14, startY)
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Data Pangkalan LPG 3Kg - ${wilayah}`, 14, 23)
-    doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 14, 29)
+    doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 14, startY + 6)
 
     autoTable(doc, {
-      startY: 35,
-      head: [['No', 'Nama Pangkalan', 'Pemilik', 'ID Reg.', 'Kecamatan', 'Status', 'Foto', 'Tgl Daftar']],
+      startY: startY + 12,
+      head: [['No', 'Nama Pangkalan', 'Pemilik', 'ID Registrasi', 'Kecamatan', 'Status', 'Foto']],
       body: pangkalan.map((p, i) => [
         i + 1,
         p.nama_pangkalan,
@@ -160,14 +245,25 @@ export default function PangkalanPage() {
         p.kecamatan,
         p.status.toUpperCase(),
         p.foto_lengkap ? 'Lengkap' : 'Belum',
-        formatDate(p.created_at),
       ]),
-      styles: { fontSize: 8, cellPadding: 4 },
-      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [240, 253, 244] },
+      styles: { fontSize: 9, cellPadding: 5, textColor: [40, 40, 40] },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
+      bodyStyles: { lineWidth: 0.1, lineColor: [220, 220, 220] },
+      alternateRowStyles: { fillColor: [252, 252, 252] },
     })
 
-    doc.save(`Data_Pangkalan_CWS_${new Date().toISOString().slice(0,10)}.pdf`)
+    // FOOTER (Page Numbers)
+    const pageCount = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.setTextColor(150)
+      doc.text(`Halaman ${i} dari ${pageCount}`, pageWidth - 14, doc.internal.pageSize.getHeight() - 10, { align: 'right' })
+    }
+
+
+    const fileNameAgen = kopSurat.kop_nama_perusahaan ? ` - ${kopSurat.kop_nama_perusahaan}` : ''
+    doc.save(`Data Pangkalan${fileNameAgen}.pdf`)
     toast.success('Data berhasil diekspor ke PDF')
   }
 

@@ -6,7 +6,7 @@ import { logAktivitas } from '@/lib/db'
 import type { Profile } from '@/types'
 import {
   User, Save, Loader2, Key, Shield,
-  Building2, AlertTriangle, Info, Trash2, Bell, Lock, Activity, CheckCircle2
+  Building2, AlertTriangle, Info, Trash2, Bell, Lock, Activity, CheckCircle2, ClipboardList, Upload, Image as ImageIcon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getInitials } from '@/lib/utils'
@@ -34,7 +34,7 @@ export default function PengaturanPage() {
   const [deletingAccount, setDeletingAccount] = useState(false)
   
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'profil' | 'keamanan' | 'sistem' | 'info'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'keamanan' | 'sistem' | 'info' | 'kop_surat'>('profil')
   const [sistemForm, setSistemForm] = useState(SISTEM_DEFAULTS)
   const [savingSistem, setSavingSistem] = useState(false)
   
@@ -42,6 +42,15 @@ export default function PengaturanPage() {
   const [notifEmail, setNotifEmail] = useState(true)
   const [notifBrowser, setNotifBrowser] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
+  
+  // Kop Surat State
+  const [kopForm, setKopForm] = useState({
+    kop_nama_perusahaan: '',
+    kop_alamat: '',
+    kop_kontak: '',
+    kop_logo_base64: ''
+  })
+  const [savingKop, setSavingKop] = useState(false)
 
   const supabase = createClient()
 
@@ -87,6 +96,12 @@ export default function PengaturanPage() {
       setNotifEmail(profileData?.email_notif ?? true)
       setNotifBrowser(profileData?.browser_notif ?? false)
       setForm({ full_name: userFullName, phone: userPhone })
+      setKopForm({
+        kop_nama_perusahaan: profileData?.kop_nama_perusahaan || '',
+        kop_alamat: profileData?.kop_alamat || '',
+        kop_kontak: profileData?.kop_kontak || '',
+        kop_logo_base64: profileData?.kop_logo_base64 || ''
+      })
       setLoading(false)
     }
     fetchProfile()
@@ -187,6 +202,68 @@ export default function PengaturanPage() {
     setSavingSistem(false)
   }
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 5MB')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = document.createElement('img')
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        // Kompres ukuran gambar (Max height 120px untuk logo PDF)
+        const targetHeight = 120
+        const scale = targetHeight / img.height
+        const targetWidth = img.width * scale
+
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+
+        // Gunakan PNG agar background transparan tetap terjaga
+        let dataUrl = canvas.toDataURL('image/png')
+        
+        // Cek ukuran hasil kompresi (dalam KB)
+        const kbSize = Math.round((dataUrl.length * 0.75) / 1024)
+        if (kbSize > 100) {
+          // Jika masih > 100kb, paksa kompres ke JPEG kualitas rendah
+          dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        }
+        
+        setKopForm(prev => ({ ...prev, kop_logo_base64: dataUrl }))
+        toast.success(`Logo berhasil dikompresi (~${Math.round((dataUrl.length * 0.75) / 1024)}KB)`)
+      }
+      img.src = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveKopSurat = async () => {
+    if (!profile) return
+    setSavingKop(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(kopForm)
+        .eq('id', profile.id)
+      
+      if (error) throw error
+      toast.success('Kop Surat berhasil disimpan')
+    } catch (e) {
+      toast.error('Gagal menyimpan Kop Surat')
+    } finally {
+      setSavingKop(false)
+    }
+  }
+
   const handleDeleteAccount = async () => {
     if (deleteSoldTo !== sistemForm.sold_to) {
       toast.error('Kode Sold To yang Anda masukkan tidak sesuai.')
@@ -218,6 +295,7 @@ export default function PengaturanPage() {
     { key: 'profil'   as const, label: 'Profil Admin', icon: User, desc: 'Informasi data diri Anda' },
     { key: 'keamanan' as const, label: 'Keamanan',     icon: Shield, desc: 'Sandi & preferensi' },
     { key: 'sistem'   as const, label: 'Sistem Agen',  icon: Building2, desc: 'Data operasional agen' },
+    { key: 'kop_surat'as const, label: 'Kop Surat (PDF)', icon: ClipboardList, desc: 'Logo & identitas PDF' },
     { key: 'info'     as const, label: 'Tentang',      icon: Info, desc: 'Versi & detail aplikasi' },
   ]
 
@@ -581,6 +659,99 @@ export default function PengaturanPage() {
                 >
                   <Trash2 size={18} /> Saya Mengerti, Hapus Akun
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: Kop Surat ── */}
+          {activeTab === 'kop_surat' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} className="animate-fade-in">
+              <div className="card" style={{ padding: 32 }}>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>Pengaturan Kop Surat Dokumen</h2>
+                  <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
+                    Identitas ini akan otomatis dicetak pada bagian atas (*Header*) setiap kali Anda mengekspor laporan ke format PDF.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
+                  
+                  {/* Upload Logo */}
+                  <div style={{ padding: 24, borderRadius: 12, border: '2px dashed var(--border-default)', background: 'var(--bg-muted)', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                      {kopForm.kop_logo_base64 ? (
+                        <img src={kopForm.kop_logo_base64} alt="Logo" style={{ maxHeight: 80, objectFit: 'contain', background: 'white', padding: 8, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                      ) : (
+                        <div style={{ width: 80, height: 80, borderRadius: 8, background: 'var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                          <ImageIcon size={32} />
+                        </div>
+                      )}
+                    </div>
+                    <label htmlFor="logo-upload" className="btn btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <Upload size={16} /> Pilih Logo Perusahaan
+                    </label>
+                    <input id="logo-upload" type="file" accept="image/png, image/jpeg" style={{ display: 'none' }} onChange={handleLogoUpload} />
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 12 }}>
+                      Gambar akan otomatis dikompresi (Resize max height 120px). Sangat disarankan format PNG transparan.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+                    <div>
+                      <label className="form-label">Nama Perusahaan (Kop Atas)</label>
+                      <input
+                        type="text" className="form-input"
+                        value={kopForm.kop_nama_perusahaan}
+                        onChange={e => setKopForm(s => ({ ...s, kop_nama_perusahaan: e.target.value.toUpperCase() }))}
+                        placeholder="PT. AGEN GAS LESTARI"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Alamat Lengkap</label>
+                      <input
+                        type="text" className="form-input"
+                        value={kopForm.kop_alamat}
+                        onChange={e => setKopForm(s => ({ ...s, kop_alamat: e.target.value }))}
+                        placeholder="Jl. Merdeka No.123, Kel. Sukamaju, Kec. Majujaya, Kota Bandung"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Kontak (Telp / Email / Website)</label>
+                      <input
+                        type="text" className="form-input"
+                        value={kopForm.kop_kontak}
+                        onChange={e => setKopForm(s => ({ ...s, kop_kontak: e.target.value }))}
+                        placeholder="Telp: (022) 123456 | Email: info@agenlestari.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Preview Box */}
+                <div style={{ marginTop: 32, padding: 24, border: '1px solid var(--border-default)', borderRadius: 12, background: 'white' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 16, letterSpacing: 1 }}>Preview Kop Surat PDF</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                    {kopForm.kop_logo_base64 && (
+                      <img src={kopForm.kop_logo_base64} alt="Preview Logo" style={{ width: 70, height: 70, objectFit: 'contain' }} />
+                    )}
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: 'black', textTransform: 'uppercase' }}>{kopForm.kop_nama_perusahaan || 'NAMA PERUSAHAAN'}</div>
+                      <div style={{ fontSize: 13, color: '#333', marginTop: 4 }}>{kopForm.kop_alamat || 'Alamat Perusahaan'}</div>
+                      <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{kopForm.kop_kontak || 'Kontak Perusahaan'}</div>
+                    </div>
+                    {kopForm.kop_logo_base64 && (
+                      <div style={{ width: 70 }} /> /* Spacer for centering */
+                    )}
+                  </div>
+                  <div style={{ height: 2, background: 'black', width: '100%', marginTop: 12 }} />
+                  <div style={{ height: 1, background: 'black', width: '100%', marginTop: 2 }} />
+                </div>
+
+                <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border-default)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-primary" onClick={handleSaveKopSurat} disabled={savingKop} style={{ padding: '12px 24px' }}>
+                    {savingKop ? <><Loader2 size={16} className="animate-spin" /> Menyimpan...</> : <><Save size={18} /> Simpan Kop Surat</>}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -165,6 +165,13 @@ export async function GET(request: NextRequest) {
             </td>
         </tr>
     </table>
+    <!-- Anti-trimming string for Gmail -->
+    <div style="display: none; white-space: nowrap; font: 15px courier; line-height: 0;">
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+    </div>
+    <span style="opacity: 0; color: transparent; display: none; font-size: 0px;">${Date.now()}</span>
 </body>
 </html>`
 

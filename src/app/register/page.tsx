@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Eye, EyeOff, Loader2, User, Mail, Lock, Building2, MapPin, ChevronRight, ChevronLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Loader2, User, Mail, Lock, Building2, MapPin, ChevronRight, ChevronLeft, CheckCircle2, ShieldCheck, ChevronDown, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Step = 'step1' | 'step2' | 'otp' | 'success'
@@ -32,6 +32,47 @@ export default function RegisterPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showKonfirmasi, setShowKonfirmasi] = useState(false)
+  
+  // Wilayah search state
+  const [wilayahOptions, setWilayahOptions] = useState<string[]>([])
+  const [showWilayahDropdown, setShowWilayahDropdown] = useState(false)
+  const [searchingWilayah, setSearchingWilayah] = useState(false)
+  const wilayahRef = useRef<HTMLDivElement>(null)
+
+  // Handle click outside wilayah dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wilayahRef.current && !wilayahRef.current.contains(e.target as Node)) {
+        setShowWilayahDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const fetchWilayah = async (query: string = '') => {
+    setSearchingWilayah(true)
+    try {
+      const res = await fetch(`/api/wilayah?q=${encodeURIComponent(query)}`)
+      const json = await res.json()
+      if (json.success) setWilayahOptions(json.data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSearchingWilayah(false)
+    }
+  }
+
+  const handleWilayahChange = (val: string) => {
+    updateForm('wilayah', val)
+    fetchWilayah(val)
+    setShowWilayahDropdown(true)
+  }
+
+  const handleWilayahFocus = () => {
+    fetchWilayah(form.wilayah)
+    setShowWilayahDropdown(true)
+  }
 
   // Resend cooldown timer
   useEffect(() => {
@@ -252,6 +293,20 @@ export default function RegisterPage() {
         }
         .form-input-reg:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
         .form-label-reg { display: block; font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; }
+
+        .combobox-list {
+          position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+          background: var(--bg-surface); border: 1px solid var(--border-default);
+          border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          max-height: 220px; overflow-y: auto; z-index: 50;
+        }
+        .combobox-item {
+          padding: 12px 16px; font-size: 14px; color: var(--text-primary);
+          cursor: pointer; transition: background 0.2s;
+          border-bottom: 1px solid var(--border-default);
+        }
+        .combobox-item:last-child { border-bottom: none; }
+        .combobox-item:hover { background: #f0fdf4; color: #16a34a; }
       `}</style>
 
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
@@ -366,11 +421,47 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 28 }}>
+                <div style={{ marginBottom: 28 }} ref={wilayahRef}>
                   <label className="form-label-reg" htmlFor="wilayah">Wilayah</label>
                   <div className="input-icon-wrap">
                     <span className="icon"><MapPin size={16} /></span>
-                    <input id="wilayah" type="text" className="form-input-reg" placeholder="Contoh: Jakarta Barat" value={form.wilayah} onChange={e => updateForm('wilayah', e.target.value)} />
+                    <input 
+                      id="wilayah" 
+                      type="text" 
+                      className="form-input-reg" 
+                      placeholder="Cari Kota/Kabupaten..." 
+                      value={form.wilayah} 
+                      onChange={e => handleWilayahChange(e.target.value)} 
+                      onFocus={handleWilayahFocus}
+                      autoComplete="off"
+                    />
+                    <span className="icon-right" style={{ pointerEvents: 'none' }}>
+                      {searchingWilayah ? <Loader2 size={16} className="animate-spin" /> : <ChevronDown size={16} />}
+                    </span>
+
+                    {/* Wilayah Dropdown */}
+                    {showWilayahDropdown && (
+                      <div className="combobox-list">
+                        {wilayahOptions.length > 0 ? (
+                          wilayahOptions.map((w, idx) => (
+                            <div 
+                              key={idx} 
+                              className="combobox-item"
+                              onClick={() => {
+                                updateForm('wilayah', w);
+                                setShowWilayahDropdown(false);
+                              }}
+                            >
+                              {w}
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                            {searchingWilayah ? 'Mencari...' : 'Wilayah tidak ditemukan'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

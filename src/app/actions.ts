@@ -17,7 +17,7 @@ export async function getFallbackProfileData(email: string) {
       .select('nama_lengkap, nama_agen, sold_to, wilayah')
       .eq('email', email)
       .maybeSingle()
-    
+
     return data || null
   } catch (error) {
     console.error('Error fetching fallback profile:', error)
@@ -37,7 +37,7 @@ export async function saveSystemSettingsData(email: string, payload: { nama_agen
         updated_at: new Date().toISOString()
       })
       .eq('email', email)
-    
+
     if (error) throw error
     return true
   } catch (error) {
@@ -49,7 +49,7 @@ export async function saveSystemSettingsData(email: string, payload: { nama_agen
 export async function sendPasswordChangeEmail(email: string, fullName: string) {
   try {
     if (!email) return false
-    
+
     const year = new Date().getFullYear()
     const htmlTemplate = `<!DOCTYPE html>
 <html lang="id">
@@ -80,7 +80,7 @@ export async function sendPasswordChangeEmail(email: string, fullName: string) {
         </div>
         <div class="content">
             <h2 class="title">Pemberitahuan Keamanan</h2>
-            <p class="text">Halo, <strong>\${fullName.toUpperCase()}</strong>!</p>
+            <p class="text">Halo, <strong>${fullName.toUpperCase()}</strong>!</p>
             <p class="text">Kami ingin memberitahukan bahwa <strong>password akun Agen LPG Anda telah berhasil diubah</strong> baru saja.</p>
             
             <div class="alert-box">
@@ -96,15 +96,22 @@ export async function sendPasswordChangeEmail(email: string, fullName: string) {
         </div>
         <div class="footer">
             <p style="margin: 0 0 10px 0; font-size: 14px; color: rgba(255,255,255,0.8);">Website ini dirancang dan dikembangkan oleh:</p>
-            <a href="https://apps-primadev.netlify.app" target="_blank" style="text-decoration: none; display: inline-block; margin-bottom: 15px;">
-                <img src="cid:logo-primadev" alt="PrimaDev Logo" height="40" style="display: block; border: 0;">
+            <a href="https://apps-primadev.netlify.app" target="_blank" style="text-decoration: none; display: inline-block; margin-bottom: 10px;">
+                <img src="cid:logo-primadev" alt="PrimaDev Logo" height="90" style="display: block; border: 0;">
             </a>
             <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.7);">
-                &copy; \${year} Agen LPG | All Rights Reserved.<br>
+                &copy; ${year} Agen LPG | All Rights Reserved.<br>
                 Butuh bantuan? Silakan hubungi <a href="mailto:wisnu.bussines99@gmail.com" style="color: #4cb748; text-decoration: none;">wisnu.bussines99@gmail.com</a>
             </p>
         </div>
     </div>
+    <!-- Anti-trimming string for Gmail -->
+    <div style="display: none; white-space: nowrap; font: 15px courier; line-height: 0;">
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+        &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+    </div>
+    <span style="opacity: 0; color: transparent; display: none; font-size: 0px;">${Date.now()}</span>
 </body>
 </html>`
 
@@ -136,7 +143,7 @@ export async function sendPasswordChangeEmail(email: string, fullName: string) {
         }
       ]
     })
-    
+
     return true
   } catch (error) {
     console.error('Error sending password change email:', error)
