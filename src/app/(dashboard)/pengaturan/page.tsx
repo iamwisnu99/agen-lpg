@@ -258,6 +258,7 @@ export default function PengaturanPage() {
           display: inline-block;
           width: 44px;
           height: 24px;
+          flex-shrink: 0;
         }
         .toggle-switch input {
           opacity: 0;
@@ -464,8 +465,8 @@ export default function PengaturanPage() {
                   Preferensi & Notifikasi
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Peringatan Email</div>
                       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Dapatkan email saat dokumen (Pajak/APAR) hampir kedaluwarsa.</div>
                     </div>
@@ -475,8 +476,8 @@ export default function PengaturanPage() {
                     </label>
                   </div>
                   <div style={{ height: 1, background: 'var(--border-default)' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Notifikasi Browser</div>
                       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Peringatan pop-up saat aplikasi terbuka.</div>
                     </div>

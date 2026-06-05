@@ -24,15 +24,7 @@ export function NotificationManager() {
 
       if (profile?.browser_notif && "Notification" in window && Notification.permission === "granted") {
         try {
-          // Panggil API Cron secara lokal untuk mengecek ada expired tidak
-          // Note: Kita panggil endpoint lokal kita sendiri dengan secret
-          const res = await fetch('/api/cron/check-expiry?key=primadev-cron-secret')
-          const data = await res.json()
-          
-          // Jika ada pesan sukses (bisa ada yang expired atau admin tidak email_notif ON, tapi data ada)
-          // Sebenarnya cara paling benar adalah membuat fetch data pangkalan/armada lokal
-          // tapi kita bisa query langsung ke supabase saja dari client
-          
+          // Kita query langsung ke supabase dari client untuk mendapat total expired
           const getDaysBetween = (dateStr: string) => {
             const target = new Date(dateStr)
             const now = new Date()

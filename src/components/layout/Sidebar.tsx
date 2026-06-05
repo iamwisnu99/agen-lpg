@@ -27,12 +27,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard',      href: '/dashboard',  icon: LayoutDashboard },
-  { label: 'Peta Monitoring', href: '/peta',       icon: MapPin },
-  { label: 'Data Pangkalan', href: '/pangkalan',   icon: Building2 },
-  { label: 'Data Armada',    href: '/armada',      icon: Truck },
-  { label: 'Log Aktivitas',  href: '/aktivitas',  icon: ClipboardList },
-  { label: 'Pengaturan',     href: '/pengaturan', icon: Settings },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Peta Monitoring', href: '/peta', icon: MapPin },
+  { label: 'Data Pangkalan', href: '/pangkalan', icon: Building2 },
+  { label: 'Data Armada', href: '/armada', icon: Truck },
+  { label: 'Log Aktivitas', href: '/aktivitas', icon: ClipboardList },
+  { label: 'Pengaturan', href: '/pengaturan', icon: Settings },
 ]
 
 interface SidebarProps {
@@ -41,9 +41,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
-  const pathname  = usePathname()
-  const router    = useRouter()
-  const supabase  = createClient()
+  const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
   const [userName, setUserName] = useState('')
   const [namaAgen, setNamaAgen] = useState('')
   const [soldTo, setSoldTo] = useState('')
@@ -60,7 +60,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           .select('full_name')
           .eq('id', user.id)
           .single()
-        
+
         let fetchedUserName = profile?.full_name || user.email || 'Admin'
 
         // Fetch agen_account for system settings (sold to, nama agen)
@@ -74,7 +74,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
             }
           }
         }
-        
+
         setUserName(fetchedUserName)
       }
     }
@@ -100,7 +100,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="sidebar-logo" style={{ flexDirection: 'column', justifyContent: 'center', gap: 16, padding: '32px 16px 24px' }}>
         <div style={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <Image src="/icons/favicon-96x96.png" alt="Logo CWS" fill sizes="32px" priority style={{ objectFit: 'contain' }} />
+          <Image src="/icons/favicon-192x192.png" alt="Logo CWS" fill sizes="32px" priority style={{ objectFit: 'contain' }} />
         </div>
         <div style={{ textAlign: 'center', width: '100%' }}>
           <div className="text-sm font-bold" style={{ color: 'var(--text-primary)', lineHeight: 1.5, wordWrap: 'break-word' }}>
