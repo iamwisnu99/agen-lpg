@@ -2,6 +2,31 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 export async function proxy(request: NextRequest) {
+  // CORS Protection for API routes
+  if (request.nextUrl.pathname.startsWith('/api/') && !request.nextUrl.pathname.startsWith('/api/cron/')) {
+    const origin = request.headers.get('origin') || request.headers.get('referer') || ''
+    const host = request.headers.get('host') || ''
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1')
+    
+    if (!isLocalhost) {
+      if (!origin || !origin.startsWith('https://agen-lpg.netlify.app')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Forbidden', message: 'CORS Policy Violation: Origin not allowed' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // Handle OPTIONS request early
+    if (request.method === 'OPTIONS') {
+      const response = new NextResponse(null, { status: 204 })
+      const allowedOrigin = origin.startsWith('http://localhost') ? origin : 'https://agen-lpg.netlify.app'
+      response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+      return response
+    }
+  }
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -59,6 +84,15 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin') || request.headers.get('referer') || ''
+    const allowedOrigin = origin.startsWith('http://localhost') ? origin : 'https://agen-lpg.netlify.app'
+    
+    supabaseResponse.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+    supabaseResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    supabaseResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
   }
 
   return supabaseResponse
