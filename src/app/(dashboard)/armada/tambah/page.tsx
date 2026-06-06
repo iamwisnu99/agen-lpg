@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Save, Loader2, Truck, Image as ImageIcon, CheckCircle2, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Truck, Image as ImageIcon, CheckCircle2, Trash2, Camera, X } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { ArmadaFormData } from '@/types'
@@ -30,6 +30,66 @@ export default function TambahArmadaPage() {
   const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [fotoPreview, setFotoPreview] = useState<string>('')
   const [cropperSrc, setCropperSrc] = useState<string>('')
+
+  const [uploadMethodModal, setUploadMethodModal] = useState(false)
+  const [cameraMode, setCameraMode] = useState(false)
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      streamRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => stopCamera()
+  }, [])
+
+  const startCamera = async () => {
+    setUploadMethodModal(false)
+    setCameraMode(true)
+    setCameraLoading(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal mengakses kamera.')
+      setCameraMode(false)
+    } finally {
+      setCameraLoading(false)
+    }
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return
+    const video = videoRef.current
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth || 1920
+    canvas.height = video.videoHeight || 1080
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `armada_${Date.now()}.jpg`, { type: 'image/jpeg' })
+          const previewUrl = URL.createObjectURL(file)
+          setCropperSrc(previewUrl)
+          stopCamera()
+          setCameraMode(false)
+        }
+      }, 'image/jpeg', 0.95)
+    }
+  }
   const [errors, setErrors] = useState<Partial<Record<keyof ArmadaFormData, string>>>({})
 
   const update = (field: keyof ArmadaFormData, value: string) => {
@@ -223,7 +283,7 @@ export default function TambahArmadaPage() {
             >
               {fotoPreview ? (
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
-                  <img src={fotoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => document.getElementById('armada-foto')?.click()} />
+                  <img src={fotoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={() => setUploadMethodModal(true)} />
                   <button
                     type="button"
                     onClick={(e) => {
@@ -247,7 +307,7 @@ export default function TambahArmadaPage() {
               ) : (
                 <div 
                   style={{ color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', aspectRatio: '16/9', justifyContent: 'center' }}
-                  onClick={() => document.getElementById('armada-foto')?.click()}
+                  onClick={() => setUploadMethodModal(true)}
                 >
                   <ImageIcon size={32} style={{ marginBottom: 8 }} />
                   <span style={{ fontSize: 14, fontWeight: 500 }}>Tap untuk ambil / upload foto</span>
@@ -265,6 +325,72 @@ export default function TambahArmadaPage() {
             />
           </div>
         </div>
+
+        {/* Modals for Camera */}
+        {uploadMethodModal && (
+          <div className="modal-overlay" onClick={() => setUploadMethodModal(false)}>
+            <div className="modal" style={{ maxWidth: 360, width: '100%', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                <div style={{ width: '100%' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Pilih Metode</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Bagaimana Anda ingin mengunggah foto?</div>
+                </div>
+                <button className="btn btn-ghost btn-icon" onClick={() => setUploadMethodModal(false)} style={{ position: 'absolute', right: 16, top: 16 }}>
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '24px' }}>
+                <button type="button" className="btn btn-primary" style={{ padding: '16px', fontSize: 15, display: 'flex', justifyContent: 'center', gap: 8 }} onClick={startCamera}>
+                  <Camera size={20} /> Ambil Langsung
+                </button>
+                <button type="button" className="btn btn-secondary" style={{ padding: '16px', fontSize: 15, display: 'flex', justifyContent: 'center', gap: 8 }} onClick={() => {
+                  setUploadMethodModal(false)
+                  document.getElementById('armada-foto')?.click()
+                }}>
+                  <ImageIcon size={20} /> Pilih dari Galeri
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {cameraMode && (
+          <div className="modal-overlay" style={{ background: '#000', zIndex: 10000 }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(rgba(0,0,0,0.5), transparent)', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+                <div style={{ color: 'white', fontWeight: 600 }}>Ambil Foto Armada</div>
+                <button type="button" className="btn btn-ghost btn-icon" onClick={() => { stopCamera(); setCameraMode(false) }} style={{ color: 'white' }}>
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ width: '100%', maxWidth: 600, aspectRatio: '16/9', position: 'relative', background: '#222', borderRadius: 8, overflow: 'hidden' }}>
+                  {cameraLoading && <Loader2 size={40} className="animate-spin" style={{ color: 'white', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraLoading ? 'none' : 'block' }}
+                    onLoadedMetadata={() => setCameraLoading(false)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}>
+                <button 
+                  type="button"
+                  onClick={capturePhoto}
+                  style={{ 
+                    width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' 
+                  }}
+                >
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'white' }} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 32 }}>
           <Link href="/armada" className="btn btn-secondary">

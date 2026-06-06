@@ -24,47 +24,7 @@ interface PhotoUploadProps {
   onUpdate?: () => void
 }
 
-const addWatermark = async (file: File, pangkalanNama: string): Promise<File> => {
-  return new Promise((resolve) => {
-    const img = new window.Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
-
-      // Watermark background
-      const watermarkH = 70
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'
-      ctx.fillRect(0, img.height - watermarkH, img.width, watermarkH)
-
-      // Watermark text
-      ctx.fillStyle = 'white'
-      ctx.font = `bold ${Math.max(14, img.width / 30)}px Arial`
-      ctx.fillText(pangkalanNama, 12, img.height - watermarkH + 28)
-
-      const now = new Date()
-      const dateStr = now.toLocaleDateString('id-ID', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      })
-      ctx.font = `${Math.max(12, img.width / 36)}px Arial`
-      ctx.fillText(dateStr, 12, img.height - watermarkH + 54)
-
-      canvas.toBlob((blob) => {
-        URL.revokeObjectURL(url)
-        if (blob) {
-          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
-        } else {
-          resolve(file)
-        }
-      }, 'image/jpeg', 0.9)
-    }
-    img.src = url
-  })
-}
+// addWatermark removed
 
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -207,7 +167,48 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
   }
 
   const [preview, setPreview] = useState<{ jenis: JenisFoto; url: string; file: File } | null>(null)
-  const [viewingPhoto, setViewingPhoto] = useState<{ url: string; title: string } | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<{ url: string; title: string; jenis: JenisFoto } | null>(null)
+  
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, jenis: JenisFoto, url: string, title: string } | null>(null)
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null)
+
+  const handleContextMenu = (e: React.MouseEvent, jenis: JenisFoto, url: string, title: string) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, jenis, url, title })
+  }
+
+  const handleTouchStart = (e: React.TouchEvent, jenis: JenisFoto, url: string, title: string) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      longPressTimer.current = setTimeout(() => {
+        setContextMenu({ x: touch.clientX, y: touch.clientY, jenis, url, title })
+      }, 500)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+    }
+  }
+
+  const handleDownload = async (url: string, title: string) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `${pangkalanNama}_${title.replace(/\s+/g, '_')}.jpg`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+      setContextMenu(null)
+    } catch (err) {
+      toast.error('Gagal mengunduh gambar')
+    }
+  }
 
   // Crop states
   const [crop, setCrop] = useState({ x: 0, y: 0 })
@@ -254,11 +255,11 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
         initialQuality: 0.85,
       })
 
-      // 3. Add watermark
-      const watermarked = await addWatermark(compressed, pangkalanNama)
+      // 3. Add watermark (DISABLED per request to allow downloading clean image)
+      // const watermarked = await addWatermark(compressed, pangkalanNama)
 
-      // 4. Upload to Supabase
-      const newPhoto = await uploadFoto(pangkalanId, jenis, watermarked, pangkalanNama)
+      // 4. Upload to Supabase (Upload original clean compressed image)
+      const newPhoto = await uploadFoto(pangkalanId, jenis, compressed, pangkalanNama)
 
       if (jenis === 'apar' && aparDateInput) {
         const supabase = createClient()
@@ -445,7 +446,7 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
                 }}
                 onClick={() => {
                   if (existing) {
-                    setViewingPhoto({ url: existing.url, title: JENIS_FOTO_LABELS[jenis] })
+                    setViewingPhoto({ url: existing.url, title: JENIS_FOTO_LABELS[jenis], jenis })
                   } else {
                     setUploadMethodTarget(jenis)
                   }
@@ -691,16 +692,92 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
             <div className="viewer-title">
               {viewingPhoto.title}
             </div>
-            <div className="viewer-image-wrapper">
+            <div 
+              className="viewer-image-wrapper"
+              onContextMenu={(e) => viewingPhoto.jenis && handleContextMenu(e, viewingPhoto.jenis, viewingPhoto.url, viewingPhoto.title)}
+              onTouchStart={(e) => viewingPhoto.jenis && handleTouchStart(e, viewingPhoto.jenis, viewingPhoto.url, viewingPhoto.title)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchEnd}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={viewingPhoto.url}
                 alt={viewingPhoto.title}
                 className="viewer-img"
               />
+              <div 
+                style={{
+                  position: 'absolute',
+                  bottom: 0, left: 0, right: 0,
+                  height: 70,
+                  background: 'rgba(0,0,0,0.55)',
+                  color: 'white',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  pointerEvents: 'none'
+                }}
+              >
+                <div style={{ fontWeight: 'bold', fontSize: 16 }}>{pangkalanNama}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Custom Context Menu */}
+      {contextMenu && (
+        <>
+          <div 
+            style={{ position: 'fixed', inset: 0, zIndex: 10000 }}
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null) }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: Math.min(contextMenu.y, window.innerHeight - 150),
+              left: Math.min(contextMenu.x, window.innerWidth - 180),
+              background: 'white',
+              borderRadius: 8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 10001,
+              minWidth: 160,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <button
+              style={{ padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontSize: 14, color: 'var(--text-primary)' }}
+              onClick={() => handleDownload(contextMenu.url, contextMenu.title)}
+              onMouseOver={(e) => e.currentTarget.style.background = '#f3f4f6'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              Unduh Gambar
+            </button>
+            <button
+              style={{ padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontSize: 14, color: '#ef4444' }}
+              onClick={() => { setContextMenu(null); setViewingPhoto(null); handleDeleteClick(contextMenu.jenis) }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              Hapus
+            </button>
+            <button
+              style={{ padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontSize: 14, color: 'var(--text-primary)' }}
+              onClick={() => { setContextMenu(null); setViewingPhoto(null); }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#f3f4f6'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              Tutup
+            </button>
+          </div>
+        </>
       )}
 
       {/* APAR Date Update Modal */}
@@ -783,14 +860,16 @@ export function PhotoUpload({ pangkalanId, pangkalanNama, existingPhotos = EMPTY
             </div>
             
             <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {cameraLoading && <Loader2 size={40} className="animate-spin" style={{ color: 'white', position: 'absolute' }} />}
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraLoading ? 'none' : 'block' }}
-                onLoadedMetadata={() => setCameraLoading(false)}
-              />
+              <div style={{ width: '100%', maxWidth: 600, aspectRatio: '4/3', position: 'relative', background: '#222', borderRadius: 8, overflow: 'hidden' }}>
+                {cameraLoading && <Loader2 size={40} className="animate-spin" style={{ color: 'white', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraLoading ? 'none' : 'block' }}
+                  onLoadedMetadata={() => setCameraLoading(false)}
+                />
+              </div>
             </div>
 
             <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}>
