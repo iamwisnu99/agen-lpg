@@ -57,6 +57,6 @@ export default async function getCroppedImg(
         return
       }
       resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }))
-    }, 'image/jpeg')
+    }, 'image/jpeg', 1)
   })
 }

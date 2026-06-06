@@ -73,12 +73,32 @@ export default function TambahArmadaPage() {
   const capturePhoto = () => {
     if (!videoRef.current) return
     const video = videoRef.current
+    const videoWidth = video.videoWidth || 1920
+    const videoHeight = video.videoHeight || 1080
+    
+    // Crop center for 16:9 aspect ratio matching the UI cover view
+    const targetRatio = 16 / 9
+    const sourceRatio = videoWidth / videoHeight
+    
+    let sWidth = videoWidth
+    let sHeight = videoHeight
+    let sx = 0
+    let sy = 0
+    
+    if (sourceRatio > targetRatio) {
+      sWidth = videoHeight * targetRatio
+      sx = (videoWidth - sWidth) / 2
+    } else {
+      sHeight = videoWidth / targetRatio
+      sy = (videoHeight - sHeight) / 2
+    }
+
     const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth || 1920
-    canvas.height = video.videoHeight || 1080
+    canvas.width = sWidth
+    canvas.height = sHeight
     const ctx = canvas.getContext('2d')
     if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight)
       canvas.toBlob((blob) => {
         if (blob) {
           const file = new File([blob], `armada_${Date.now()}.jpg`, { type: 'image/jpeg' })
@@ -155,7 +175,7 @@ export default function TambahArmadaPage() {
       let finalFotoUrl = null
       if (fotoFile) {
         try {
-          const compressed = await imageCompression(fotoFile, { maxSizeMB: 1, maxWidthOrHeight: 1200, useWebWorker: true })
+          const compressed = await imageCompression(fotoFile, { maxSizeMB: 1.5, maxWidthOrHeight: 1920, useWebWorker: true, initialQuality: 0.85 })
           finalFotoUrl = await uploadArmadaFoto(data.id, compressed, data.no_plat)
         } catch (uploadErr) {
           console.error(uploadErr)
