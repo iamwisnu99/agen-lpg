@@ -4,6 +4,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { Toaster } from 'react-hot-toast'
 import { PwaRegister } from '@/components/PwaRegister'
+import { NetworkStatus } from '@/components/NetworkStatus'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -86,7 +87,8 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased bg-[var(--bg-default)] text-[var(--text-primary)] min-h-screen flex flex-col`}>
+        <NetworkStatus />
         <ThemeProvider>
           <PwaRegister />
           {children}

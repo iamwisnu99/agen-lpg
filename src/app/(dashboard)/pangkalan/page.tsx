@@ -1,16 +1,15 @@
 'use client'
 
+import { useApp } from '@/components/providers/AppProvider'
 import { useEffect, useState, useCallback } from 'react'
-import { getPangkalanList } from '@/lib/db'
 import type { Pangkalan } from '@/types'
-import { getFallbackProfileData } from '@/app/actions'
 import Link from 'next/link'
 import {
   Plus, Search, Filter, Download, Building2, FileSpreadsheet, FileText,
   CheckCircle2, XCircle, AlertTriangle, Eye, Edit, ToggleLeft, ToggleRight,
   ChevronLeft, ChevronRight, Loader2, MapPin,
 } from 'lucide-react'
-import { formatDate, debounce } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { logAktivitas } from '@/lib/db'
 import toast from 'react-hot-toast'
@@ -37,63 +36,44 @@ export default function PangkalanPage() {
   })
   const supabase = createClient()
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('kop_nama_perusahaan, kop_alamat, kop_kontak, kop_logo_base64')
-          .eq('id', user.id)
-          .single()
-        if (profile) setKopSurat(profile as any)
-      }
+  const { stats, profile, agenData, refresh } = useApp()
 
-      const data = await getPangkalanList({
-        status: filterStatus === 'semua' ? undefined : filterStatus,
-        kecamatan: filterKecamatan === 'semua' ? undefined : filterKecamatan,
-        foto_lengkap: filterFoto === 'lengkap' ? true : filterFoto === 'belum' ? false : undefined,
-        search: search || undefined,
-      })
-      setPangkalan(data)
-    } catch (err) {
-      toast.error('Gagal memuat data')
-    } finally {
+  useEffect(() => {
+    if (profile) setKopSurat(profile as any)
+    if (agenData?.wilayah) setWilayah(agenData.wilayah)
+  }, [profile, agenData])
+
+  useEffect(() => {
+    if (stats?.total_per_kecamatan) {
+      setKecamatanList(stats.total_per_kecamatan.map(k => k.kecamatan))
+    }
+  }, [stats])
+
+  useEffect(() => {
+    if (!stats?.pangkalan_list) {
       setLoading(false)
+      return
     }
-  }, [filterStatus, filterKecamatan, filterFoto, search])
+    let data = stats.pangkalan_list
 
-  const debouncedFetch = useCallback(debounce(fetchData, 400), [fetchData])
-
-  useEffect(() => {
-    debouncedFetch()
-  }, [search, filterStatus, filterKecamatan, filterFoto])
-
-  useEffect(() => {
-    const fetchKecamatan = async () => {
-      const { data } = await supabase
-        .from('pangkalan')
-        .select('kecamatan')
-        .order('kecamatan')
-      if (data) {
-        const unique = [...new Set(data.map(p => p.kecamatan).filter(k => k && k.trim() !== ''))]
-        setKecamatanList(unique)
-      }
+    if (filterStatus !== 'semua') data = data.filter(p => p.status === filterStatus)
+    if (filterKecamatan !== 'semua') data = data.filter(p => p.kecamatan === filterKecamatan)
+    if (filterFoto !== 'semua') {
+      data = data.filter(p => filterFoto === 'lengkap' ? p.foto_lengkap : !p.foto_lengkap)
     }
-    fetchKecamatan()
-
-    const fetchWilayah = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user?.email) {
-        const data = await getFallbackProfileData(user.email)
-        if (data?.wilayah) {
-          setWilayah(data.wilayah)
-        }
-      }
+    if (search) {
+      const lower = search.toLowerCase()
+      data = data.filter(p => 
+        p.nama_pangkalan.toLowerCase().includes(lower) || 
+        p.nama_pemilik.toLowerCase().includes(lower) || 
+        (p.nomor_hp && p.nomor_hp.includes(lower)) ||
+        (p.id_registrasi && p.id_registrasi.toLowerCase().includes(lower))
+      )
     }
-    fetchWilayah()
-  }, [])
+
+    setPangkalan(data)
+    setLoading(false)
+  }, [stats, filterStatus, filterKecamatan, filterFoto, search])
 
   const handleToggleStatus = async (p: Pangkalan) => {
     const newStatus = p.status === 'aktif' ? 'nonaktif' : 'aktif'
@@ -114,7 +94,7 @@ export default function PangkalanPage() {
       })
 
       toast.success(`Pangkalan berhasil di${newStatus === 'aktif' ? 'aktifkan' : 'nonaktifkan'}`)
-      fetchData()
+      await refresh()
     } catch {
       toast.error('Gagal mengubah status')
     } finally {

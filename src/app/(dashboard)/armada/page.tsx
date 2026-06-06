@@ -1,19 +1,19 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { getArmadaList, deleteArmada, logAktivitas } from '@/lib/db'
+import { useApp } from '@/components/providers/AppProvider'
+import { useState, useEffect } from 'react'
 import type { Armada } from '@/types'
 import Link from 'next/link'
 import {
   Plus, Search, Truck, AlertCircle, AlertTriangle, FileSpreadsheet, FileText,
   CheckCircle2, XCircle, Wrench, Edit, Trash2, Calendar, User, UserCheck
 } from 'lucide-react'
-import { formatDate, debounce, getDaysRemaining } from '@/lib/utils'
+import { formatDate, getDaysRemaining } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx-js-style'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { createClient } from '@/lib/supabase/client'
+import { deleteArmada, logAktivitas } from '@/lib/db'
 import { CustomSelect } from '@/components/CustomSelect'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import Image from 'next/image'
@@ -31,38 +31,30 @@ export default function ArmadaPage() {
   const [page, setPage] = useState(1)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ id: string; no_plat: string; data: Armada } | null>(null)
-  const supabase = createClient()
-
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('kop_nama_perusahaan, kop_alamat, kop_kontak, kop_logo_base64')
-          .eq('id', user.id)
-          .single()
-        if (profile) setKopSurat(profile as any)
-      }
-
-      const data = await getArmadaList({
-        status: filterStatus === 'Semua' ? undefined : filterStatus,
-        search: search || undefined,
-      })
-      setArmada(data)
-    } catch (err) {
-      toast.error('Gagal memuat data armada')
-    } finally {
-      setLoading(false)
-    }
-  }, [filterStatus, search])
-
-  const debouncedFetch = useCallback(debounce(fetchData, 400), [fetchData])
+  const { armada: globalArmada, profile, refresh } = useApp()
 
   useEffect(() => {
-    debouncedFetch()
-  }, [search, filterStatus])
+    if (profile) setKopSurat(profile as any)
+  }, [profile])
+
+  useEffect(() => {
+    let data = globalArmada
+
+    if (filterStatus !== 'Semua') {
+      data = data.filter(a => a.status === filterStatus.toLowerCase())
+    }
+
+    if (search) {
+      const lower = search.toLowerCase()
+      data = data.filter(a => 
+        a.no_plat.toLowerCase().includes(lower) || 
+        a.nama_sopir.toLowerCase().includes(lower)
+      )
+    }
+
+    setArmada(data)
+    setLoading(false)
+  }, [globalArmada, filterStatus, search])
 
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new()
@@ -221,7 +213,7 @@ export default function ArmadaPage() {
       })
       await deleteArmada(id)
       toast.success('Data armada berhasil dihapus')
-      fetchData()
+      await refresh()
     } catch (err) {
       toast.error('Gagal menghapus data')
     } finally {

@@ -2,10 +2,10 @@
 
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { Sun, Moon, Bell, AlertTriangle, Menu, User, LogOut } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getArmadaList } from '@/lib/db'
 import { getDaysRemaining } from '@/lib/utils'
+import { useApp } from '@/components/providers/AppProvider'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -17,58 +17,26 @@ export function TopNav({ onMenuClick }: TopNavProps) {
   const { theme, toggleTheme } = useTheme()
   const [showNotif, setShowNotif] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [incompleteCount, setIncompleteCount] = useState(0)
-  const [expiringArmadaCount, setExpiringArmadaCount] = useState(0)
-  const [userName, setUserName] = useState('')
-  const [userEmail, setUserEmail] = useState('')
+  const { user, profile, stats, armada } = useApp()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const supabase = createClient()
   const router = useRouter()
   
+  // Derive counts from global context
+  const incompleteCount = stats?.total_belum_lengkap || 0
+  
+  const expiringArmadaCount = armada.filter(a => {
+    if (a.status !== 'aktif') return false
+    if (!a.jatuh_tempo_pajak_1_tahun) return false
+    const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
+    return days >= 0 && days <= 30
+  }).length
+
   const totalNotif = incompleteCount + expiringArmadaCount
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserEmail(user.email || '')
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single()
-        setUserName(profile?.full_name || 'Admin')
-      }
-    }
-    fetchUser()
-
-    const fetchIncomplete = async () => {
-      const { count } = await supabase
-        .from('pangkalan')
-        .select('*', { count: 'exact', head: true })
-        .eq('foto_lengkap', false)
-        .eq('status', 'aktif')
-      setIncompleteCount(count || 0)
-    }
-    
-    const fetchArmada = async () => {
-      try {
-        const armadas = await getArmadaList({ status: 'aktif' })
-        const count = armadas.filter(a => {
-          if (!a.jatuh_tempo_pajak_1_tahun) return false
-          const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
-          return days >= 0 && days <= 30
-        }).length
-        setExpiringArmadaCount(count)
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
-    fetchIncomplete()
-    fetchArmada()
-  }, [])
+  
+  const userEmail = user?.email || ''
+  const userName = profile?.full_name || userEmail || 'Admin'
 
   const handleLogout = async () => {
     setIsLoggingOut(true)

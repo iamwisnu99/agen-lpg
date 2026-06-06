@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { Pangkalan } from '@/types'
 import { createClient } from '@/lib/supabase/client'
+import { useApp } from '@/components/providers/AppProvider'
 
 interface MonitoringMapProps {
   height?: number
@@ -22,23 +23,16 @@ export default function MonitoringMap({
   const [activeFilter, setActiveFilter] = useState('semua')
   const supabase = createClient()
 
-  // Fetch data
-  useEffect(() => {
-    const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  const { stats } = useApp()
 
-      const { data } = await supabase
-        .from('pangkalan')
-        .select('id, nama_pangkalan, nama_pemilik, nomor_hp, status, foto_lengkap, kecamatan, kelurahan, latitude, longitude, foto_pangkalan(url, jenis_foto)')
-        .eq('created_by', user.id)
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null)
-      
-      if (data) setPangkalanData(data as Pangkalan[])
+  // Set pangkalan data from global context
+  useEffect(() => {
+    if (stats?.pangkalan_list) {
+      // Filter out those without coordinates
+      const valid = stats.pangkalan_list.filter(p => p.latitude !== null && p.longitude !== null)
+      setPangkalanData(valid)
     }
-    fetchData()
-  }, [])
+  }, [stats])
 
   // Init map
   useEffect(() => {

@@ -175,16 +175,20 @@ export async function deleteFoto(foto: FotoPangkalan) {
 // DASHBOARD STATS
 // ============================================================
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const { data: { user } } = await supabase.auth.getUser()
+export async function getDashboardStats(userId?: string): Promise<DashboardStats> {
+  let uId = userId
+  if (!uId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    uId = user?.id
+  }
 
   let query = supabase
     .from('pangkalan')
-    .select('id, status, foto_lengkap, kecamatan, nama_pangkalan, nama_pemilik, created_at, nomor_hp, latitude, longitude')
+    .select('*, foto_pangkalan(url, jenis_foto)')
     .order('created_at', { ascending: false })
 
-  if (user) {
-    query = query.eq('created_by', user.id)
+  if (uId) {
+    query = query.eq('created_by', uId)
   }
 
   const { data: pangkalanData, error } = await query
@@ -203,7 +207,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }, {} as Record<string, number>)
 
   const total_per_kecamatan = Object.entries(kecamatanMap)
-    .map(([kecamatan, count]) => ({ kecamatan, count }))
+    .map(([kecamatan, count]) => ({ kecamatan, count: count as number }))
     .sort((a, b) => b.count - a.count)
 
   const pangkalan_terbaru = pangkalanData.slice(0, 5) as Pangkalan[]
@@ -215,6 +219,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     total_belum_lengkap,
     total_per_kecamatan,
     pangkalan_terbaru,
+    pangkalan_list: pangkalanData as Pangkalan[],
   }
 }
 
@@ -260,16 +265,20 @@ import type { Armada } from '@/types'
 export async function getArmadaList(filters?: {
   status?: string
   search?: string
-}): Promise<Armada[]> {
-  const { data: { user } } = await supabase.auth.getUser()
+}, userId?: string): Promise<Armada[]> {
+  let uId = userId
+  if (!uId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    uId = user?.id
+  }
 
   let query = supabase
     .from('armada')
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (user) {
-    query = query.eq('created_by', user.id)
+  if (uId) {
+    query = query.eq('created_by', uId)
   }
 
   if (filters?.status) {

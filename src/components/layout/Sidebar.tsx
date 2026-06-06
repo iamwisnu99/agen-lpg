@@ -16,9 +16,9 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { getFallbackProfileData } from '@/app/actions'
+import { useApp } from '@/components/providers/AppProvider'
 
 interface NavItem {
   label: string
@@ -44,42 +44,19 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [userName, setUserName] = useState('')
-  const [namaAgen, setNamaAgen] = useState('')
-  const [soldTo, setSoldTo] = useState('')
+  
+  const { user, profile, agenData } = useApp()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Fetch profiles for full name
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single()
+  // Derive display values from context
+  let userName = 'Admin'
+  if (profile?.full_name) userName = profile.full_name
+  else if (agenData?.nama_lengkap) userName = agenData.nama_lengkap
+  else if (user?.email) userName = user.email
 
-        let fetchedUserName = profile?.full_name || user.email || 'Admin'
-
-        // Fetch agen_account for system settings (sold to, nama agen)
-        if (user.email) {
-          const agenData = await getFallbackProfileData(user.email)
-          if (agenData) {
-            setNamaAgen(agenData.nama_agen || '')
-            setSoldTo(agenData.sold_to || '')
-            if (profile?.full_name == null && agenData.nama_lengkap) {
-              fetchedUserName = agenData.nama_lengkap
-            }
-          }
-        }
-
-        setUserName(fetchedUserName)
-      }
-    }
-    fetchUser()
-  }, [])
+  const namaAgen = agenData?.nama_agen || ''
+  const soldTo = agenData?.sold_to || ''
 
   const handleLogout = async () => {
     setIsLoggingOut(true)

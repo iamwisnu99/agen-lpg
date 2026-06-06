@@ -114,6 +114,7 @@ export interface DashboardStats {
   total_belum_lengkap: number
   total_per_kecamatan: { kecamatan: string; count: number }[]
   pangkalan_terbaru: Pangkalan[]
+  pangkalan_list: Pangkalan[]
 }
 
 // Form types

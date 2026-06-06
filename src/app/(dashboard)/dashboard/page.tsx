@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getDashboardStats, getArmadaList } from '@/lib/db'
+import { useApp } from '@/components/providers/AppProvider'
 import type { DashboardStats } from '@/types'
 import {
   Building2,
@@ -74,32 +73,10 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [armada, setArmada] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const { stats, armada, loading, refreshing, refresh } = useApp()
 
-  const fetchStats = async () => {
-    try {
-      const data = await getDashboardStats()
-      setStats(data)
-      const armadaData = await getArmadaList()
-      setArmada(armadaData)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchStats()
-  }, [])
-
-  const handleRefresh = () => {
-    setRefreshing(true)
-    fetchStats()
+  const handleRefresh = async () => {
+    await refresh()
   }
 
   const completionRate = stats
@@ -202,7 +179,7 @@ export default function DashboardPage() {
             
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
               {expiring.map(a => {
-                const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun)
+                const days = getDaysRemaining(a.jatuh_tempo_pajak_1_tahun!)
                 return (
                   <Link key={a.id} href={`/armada/${a.id}`} style={{ flex: '0 0 auto', width: 240, border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, background: 'var(--bg-surface)', textDecoration: 'none' }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{a.no_plat}</div>

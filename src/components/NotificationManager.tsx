@@ -2,9 +2,12 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useApp } from '@/components/providers/AppProvider'
 
 export function NotificationManager() {
   const supabase = createClient()
+
+  const { profile, stats, armada } = useApp()
 
   useEffect(() => {
     let mounted = true
@@ -13,42 +16,27 @@ export function NotificationManager() {
       // Hanya cek 1x per sesi agar tidak spam
       if (sessionStorage.getItem('notif_checked') === 'true') return
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!profile || !stats) return
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('browser_notif')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.browser_notif && "Notification" in window && Notification.permission === "granted") {
+      if (profile.browser_notif && "Notification" in window && Notification.permission === "granted") {
         try {
-          // Kita query langsung ke supabase dari client untuk mendapat total expired
           const getDaysBetween = (dateStr: string) => {
             const target = new Date(dateStr)
             const now = new Date()
             return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
           }
 
-          // Fetch APAR
-          const { data: pangkalanData } = await supabase
-            .from('pangkalan')
-            .select('nama_pangkalan, apar_expired_at')
-            .not('apar_expired_at', 'is', null)
+          // Gunakan pangkalan_list dari context
+          const pangkalanData = stats.pangkalan_list || []
           
-          const expApar = (pangkalanData || []).filter(p => {
+          const expApar = pangkalanData.filter(p => {
             if(!p.apar_expired_at) return false
             const d = getDaysBetween(p.apar_expired_at)
             return d >= 0 && d <= 30
           })
 
-          // Fetch Armada
-          const { data: armadaData } = await supabase
-            .from('armada')
-            .select('no_plat, jatuh_tempo_pajak_1_tahun, jatuh_tempo_plat_5_tahun')
-          
-          const expArmada = (armadaData || []).filter(a => {
+          // Gunakan armada dari context
+          const expArmada = armada.filter(a => {
             const d1 = a.jatuh_tempo_pajak_1_tahun ? getDaysBetween(a.jatuh_tempo_pajak_1_tahun) : 999
             const d5 = a.jatuh_tempo_plat_5_tahun ? getDaysBetween(a.jatuh_tempo_plat_5_tahun) : 999
             return (d1 >= 0 && d1 <= 30) || (d5 >= 0 && d5 <= 30)
