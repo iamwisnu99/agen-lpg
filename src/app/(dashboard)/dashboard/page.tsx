@@ -346,17 +346,7 @@ export default function DashboardPage() {
               <Link
                 key={p.id}
                 href={`/pangkalan/${p.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '12px 14px',
-                  borderRadius: 10,
-                  border: '1px solid var(--border-default)',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s',
-                }}
-                className="hover-card"
+                className="dashboard-list-item hover-card"
               >
                 <div
                   style={{
@@ -380,7 +370,7 @@ export default function DashboardPage() {
                     {p.kecamatan} • {formatTimeAgo(p.created_at)}
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="item-actions" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className={`badge ${p.status === 'aktif' ? 'badge-green' : 'badge-red'}`}>
                     {p.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
                   </span>

@@ -249,7 +249,7 @@ export default function TambahArmadaPage() {
             {errors.nama_sopir && <p className="form-error">{errors.nama_sopir}</p>}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="form-grid-2">
             {/* Pajak 1 Tahun */}
             <div>
               <label className="form-label">Jatuh Tempo Pajak 1 Tahun <span style={{ color: '#ef4444' }}>*</span></label>
