@@ -71,6 +71,9 @@ export default function PangkalanPage() {
       )
     }
 
+    // Urutkan berdasarkan nama pangkalan A-Z
+    data = [...data].sort((a, b) => a.nama_pangkalan.localeCompare(b.nama_pangkalan))
+
     setPangkalan(data)
     setLoading(false)
   }, [stats, filterStatus, filterKecamatan, filterFoto, search])
@@ -226,7 +229,7 @@ export default function PangkalanPage() {
         p.status.toUpperCase(),
         p.foto_lengkap ? 'Lengkap' : 'Belum',
       ]),
-      styles: { fontSize: 9, cellPadding: 5, textColor: [40, 40, 40] },
+      styles: { fontSize: 9, cellPadding: 2, textColor: [40, 40, 40] },
       headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
       bodyStyles: { lineWidth: 0.1, lineColor: [220, 220, 220] },
       alternateRowStyles: { fillColor: [252, 252, 252] },

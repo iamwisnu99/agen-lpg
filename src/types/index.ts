@@ -107,6 +107,27 @@ export interface LogAktivitas {
   profiles?: Profile
 }
 
+export interface LaporanDO {
+  id: string
+  spbe: string
+  created_by: string | null
+  created_at: string
+  status: string
+  items?: LaporanDOItem[]
+}
+
+export interface LaporanDOItem {
+  id: string
+  laporan_do_id: string
+  tanggal: string
+  alokasi: number
+  jumlah_do: number
+  jenis: string
+  status_tebus: boolean
+  created_at: string
+}
+
+
 export interface DashboardStats {
   total_pangkalan: number
   total_aktif: number

@@ -8,11 +8,13 @@ import {
   LayoutDashboard,
   MapPin,
   Building2,
-  ClipboardList,
   Settings,
   LogOut,
   User,
   Truck,
+  FileText,
+  ChevronDown,
+  ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -24,6 +26,7 @@ interface NavItem {
   label: string
   href: string
   icon: React.ElementType
+  subItems?: { label: string; href: string }[]
 }
 
 const navItems: NavItem[] = [
@@ -31,8 +34,16 @@ const navItems: NavItem[] = [
   { label: 'Peta Monitoring', href: '/peta', icon: MapPin },
   { label: 'Data Pangkalan', href: '/pangkalan', icon: Building2 },
   { label: 'Data Armada', href: '/armada', icon: Truck },
+  { 
+    label: 'Laporan DO', 
+    href: '/laporan-do', 
+    icon: FileText,
+    subItems: [
+      { label: 'Input DO', href: '/laporan-do/input' },
+      { label: 'Penebusan', href: '/laporan-do/penebusan' }
+    ]
+  },
   { label: 'Log Aktivitas', href: '/aktivitas', icon: ClipboardList },
-  { label: 'Pengaturan', href: '/pengaturan', icon: Settings },
 ]
 
 interface SidebarProps {
@@ -48,6 +59,9 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { user, profile, agenData } = useApp()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    '/laporan-do': pathname.startsWith('/laporan-do')
+  })
 
   // Derive display values from context
   let userName = 'Admin'
@@ -68,7 +82,12 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
+    if (href === '/laporan-do') return false // parent menu itself isn't a direct page usually
     return pathname.startsWith(href)
+  }
+
+  const toggleExpanded = (href: string) => {
+    setExpandedMenus(prev => ({ ...prev, [href]: !prev[href] }))
   }
 
   const SidebarContent = (
@@ -95,8 +114,52 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       <nav className="sidebar-nav">
         <div className="nav-section-label">Menu Utama</div>
 
-        {navItems.slice(0, 5).map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
+          
+          if (item.subItems) {
+            const isExpanded = expandedMenus[item.href]
+            return (
+              <div key={item.href}>
+                <button
+                  className={cn('nav-item', pathname.startsWith(item.href) && 'active')}
+                  onClick={() => toggleExpanded(item.href)}
+                  style={{ width: '100%', justifyContent: 'space-between', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Icon size={20} className="nav-item-icon" style={{ margin: 0 }} />
+                    <span className="nav-item-label">{item.label}</span>
+                  </div>
+                  <ChevronDown size={16} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                </button>
+                <div 
+                  style={{ 
+                    display: 'grid', 
+                    gridTemplateRows: isExpanded ? '1fr' : '0fr', 
+                    transition: 'grid-template-rows 0.25s ease-out',
+                    opacity: isExpanded ? 1 : 0,
+                  }}
+                >
+                  <div style={{ overflow: 'hidden', transition: 'opacity 0.25s ease-out' }}>
+                    <div style={{ paddingLeft: 36, marginTop: 4, paddingBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {item.subItems.map(subItem => (
+                        <Link
+                          key={subItem.href}
+                          href={subItem.href}
+                          className={cn('nav-item', isActive(subItem.href) && 'active')}
+                          style={{ padding: '8px 12px', fontSize: 14 }}
+                          onClick={onClose}
+                        >
+                          {subItem.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <Link
               key={item.href}

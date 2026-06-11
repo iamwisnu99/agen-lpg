@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { Pangkalan, FotoPangkalan, LogAktivitas, DashboardStats, JenisAksi } from '@/types'
+import type { Pangkalan, FotoPangkalan, LogAktivitas, DashboardStats, JenisAksi, LaporanDO, LaporanDOItem } from '@/types'
 
 const supabase = createClient()
 
@@ -389,4 +389,117 @@ export async function getKelurahan(kecamatan: string) {
 
   if (error) throw error
   return data.map(w => w.kelurahan)
+}
+
+// ============================================================
+// LAPORAN DO CRUD
+// ============================================================
+
+export async function createLaporanDO(spbe: string, items: Omit<LaporanDOItem, 'id' | 'laporan_do_id' | 'created_at' | 'status_tebus'>[]) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Create batch
+  const { data: laporan, error: errLaporan } = await supabase
+    .from('laporan_do')
+    .insert({
+      spbe,
+      created_by: user.id,
+      status: 'Submitted'
+    })
+    .select()
+    .single()
+
+  if (errLaporan) throw errLaporan
+
+  // Create items
+  const itemsToInsert = items.map(item => ({
+    laporan_do_id: laporan.id,
+    tanggal: item.tanggal,
+    alokasi: item.alokasi,
+    jumlah_do: item.jumlah_do,
+    jenis: item.jenis,
+    status_tebus: false
+  }))
+
+  const { error: errItems } = await supabase
+    .from('laporan_do_items')
+    .insert(itemsToInsert)
+
+  if (errItems) {
+    // rollback? supabase doesn't support transactions from client easily, so we just log error
+    console.error('Failed to insert items:', errItems)
+    throw errItems
+  }
+
+  // Also log activity
+  await logAktivitas({
+    aksi: 'tambah',
+    entitas: 'laporan_do',
+    entitas_id: laporan.id,
+    entitas_nama: `DO ${spbe} (${items.length} item)`,
+    data_baru: { spbe, total_items: items.length }
+  })
+
+  return laporan
+}
+
+export async function getLaporanDOList(spbeFilter?: string, start_date?: string, end_date?: string) {
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  let query = supabase
+    .from('laporan_do')
+    .select(`
+      *,
+      items:laporan_do_items(*)
+    `)
+    .order('created_at', { ascending: false })
+
+  if (user) {
+    query = query.eq('created_by', user.id)
+  }
+  if (spbeFilter && spbeFilter !== 'Semua') {
+    query = query.eq('spbe', spbeFilter)
+  }
+  if (start_date) {
+    query = query.gte('created_at', start_date)
+  }
+  if (end_date) {
+    query = query.lte('created_at', end_date)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data as LaporanDO[]
+}
+
+export async function getLaporanDOItemsByLaporanId(laporan_id: string) {
+  const { data, error } = await supabase
+    .from('laporan_do_items')
+    .select('*')
+    .eq('laporan_do_id', laporan_id)
+    .order('tanggal', { ascending: false })
+
+  if (error) throw error
+  return data as LaporanDOItem[]
+}
+
+export async function updateStatusTebus(itemIds: string[], status_tebus: boolean) {
+  if (!itemIds.length) return
+  
+  const { error } = await supabase
+    .from('laporan_do_items')
+    .update({ status_tebus })
+    .in('id', itemIds)
+
+  if (error) throw error
+}
+
+export async function deleteLaporanDO(id: string) {
+  const { error } = await supabase
+    .from('laporan_do')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
 }
