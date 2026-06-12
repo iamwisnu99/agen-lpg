@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
-import { FileText, Eye, CheckSquare, Download, Trash2, X, Save, ChevronLeft, ChevronRight, FileSpreadsheet, Calendar, AlertCircle, CheckCircle2, Package, TrendingUp } from 'lucide-react'
-import { getLaporanDOList, updateStatusTebus, deleteLaporanDO } from '@/lib/db'
+import { FileText, Eye, CheckSquare, Download, Trash2, X, Save, ChevronLeft, ChevronRight, FileSpreadsheet, Calendar, AlertCircle, CheckCircle2, Package, TrendingUp, Edit3 } from 'lucide-react'
+import { getLaporanDOList, processPenebusan, deleteLaporanDO } from '@/lib/db'
+import Link from 'next/link'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import { CustomDatePicker } from '@/components/CustomDatePicker'
 import { CustomMonthPicker } from '@/components/CustomMonthPicker'
@@ -26,6 +27,7 @@ export default function PenebusanPage() {
   
   // Checkbox State
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
+  const [tebusInputs, setTebusInputs] = useState<Record<string, number>>({})
   const [savingTebus, setSavingTebus] = useState(false)
 
   // Export State
@@ -42,12 +44,25 @@ export default function PenebusanPage() {
   
   // Fetching handled by useSWR
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (viewModalData || tebusModalData || deleteModalId || showExportModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => { document.body.style.overflow = 'unset' }
+  }, [viewModalData, tebusModalData, deleteModalId, showExportModal])
+
   const openTebusModal = (laporan: LaporanDO) => {
     const initialChecks: Record<string, boolean> = {}
+    const initialInputs: Record<string, number> = {}
     laporan.items?.forEach(item => {
       initialChecks[item.id] = item.status_tebus
+      initialInputs[item.id] = item.jumlah_do
     })
     setCheckedItems(initialChecks)
+    setTebusInputs(initialInputs)
     setTebusModalData(laporan)
   }
 
@@ -55,16 +70,21 @@ export default function PenebusanPage() {
     if (!tebusModalData) return
     setSavingTebus(true)
     try {
-      // Find items whose status changed to true (or changed generally, but we'll just update all that are checked currently to true)
-      // Actually, let's just update the ones that are marked true now.
-      const itemsToUpdate = Object.keys(checkedItems).filter(id => checkedItems[id])
-      
-      // We might want to allow unchecking, so we could update all items in this modal
-      const trueItems = Object.keys(checkedItems).filter(id => checkedItems[id])
-      const falseItems = Object.keys(checkedItems).filter(id => !checkedItems[id])
+      const itemsToUpdate = tebusModalData.items?.map(item => {
+        const isChecked = checkedItems[item.id]
+        const inputAmount = tebusInputs[item.id] || 0
+        const tebusDO = isChecked ? inputAmount : 0
+        const sisaDO = isChecked ? item.jumlah_do - inputAmount : item.jumlah_do
 
-      await updateStatusTebus(trueItems, true)
-      await updateStatusTebus(falseItems, false)
+        return {
+          id: item.id,
+          originalItem: item,
+          tebusDO,
+          sisaDO
+        }
+      }) || []
+
+      await processPenebusan(itemsToUpdate)
 
       toast.success('Status penebusan berhasil diperbarui')
       setTebusModalData(null)
@@ -267,6 +287,9 @@ export default function PenebusanPage() {
                     <button className="btn btn-ghost btn-icon" onClick={() => openTebusModal(laporan)} title="Proses Penebusan">
                       <CheckSquare size={16} color="#16a34a" />
                     </button>
+                    <Link href={`/laporan-do/input?edit=${laporan.id}`} className="btn btn-ghost btn-icon" title="Edit DO" style={{ color: '#3b82f6' }}>
+                      <Edit3 size={16} />
+                    </Link>
                     <button className="btn btn-ghost btn-icon" onClick={() => setDeleteModalId(laporan.id)} title="Hapus" style={{ color: '#ef4444' }}>
                       <Trash2 size={16} />
                     </button>
@@ -303,18 +326,19 @@ export default function PenebusanPage() {
       </div>
 
       {viewModalData && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', overflowY: 'auto' }}>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setViewModalData(null)} />
+        <div className="content-modal-overlay">
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setViewModalData(null)} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, zIndex: 101, padding: 0, overflow: 'hidden' }}>
+          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Eye size={20} color="#16a34a" /> Detail DO - SPBE {viewModalData.spbe}
               </h2>
               <button className="btn btn-ghost btn-icon" onClick={() => setViewModalData(null)}><X size={20} /></button>
             </div>
-            <div style={{ padding: 24, background: 'var(--bg-base)', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 500 }}>
+            <div style={{ padding: 24, background: 'var(--bg-base)', overflowY: 'auto', flex: 1 }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 500 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-muted)', borderBottom: '2px solid var(--border-default)' }}>
                     <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tanggal</th>
@@ -338,16 +362,17 @@ export default function PenebusanPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {tebusModalData && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', overflowY: 'auto' }}>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !savingTebus && setTebusModalData(null)} />
+        <div className="content-modal-overlay">
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !savingTebus && setTebusModalData(null)} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, zIndex: 101, padding: 0, overflow: 'hidden' }}>
+          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <CheckSquare size={20} color="#16a34a" /> Proses Penebusan DO
@@ -355,13 +380,13 @@ export default function PenebusanPage() {
               <button className="btn btn-ghost btn-icon" onClick={() => !savingTebus && setTebusModalData(null)}><X size={20} /></button>
             </div>
             
-            <div style={{ padding: 24, background: 'var(--bg-base)' }}>
+            <div style={{ padding: 24, background: 'var(--bg-base)', overflowY: 'auto', flex: 1 }}>
               <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
                 Centang kotak di sebelah kanan untuk menandai DO yang sudah ditebus.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {tebusModalData.items?.map((item) => (
-                  <label key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, cursor: 'pointer', gap: 12 }}>
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, gap: 12 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                         {item.jumlah_do} DO ({item.alokasi} Tabung) - {item.jenis}
@@ -373,14 +398,36 @@ export default function PenebusanPage() {
                     {item.status_tebus ? (
                       <span className="badge badge-green" style={{ padding: '6px 12px' }}>Sudah Ditebus</span>
                     ) : (
-                      <input 
-                        type="checkbox" 
-                        style={{ width: 20, height: 20, accentColor: '#16a34a', cursor: 'pointer' }}
-                        checked={checkedItems[item.id] || false}
-                        onChange={(e) => setCheckedItems({ ...checkedItems, [item.id]: e.target.checked })}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {checkedItems[item.id] && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Jumlah DO:</label>
+                            <input 
+                              type="number"
+                              className="form-input"
+                              style={{ width: 60, padding: '4px 8px', height: 32 }}
+                              min={1}
+                              max={item.jumlah_do}
+                              value={tebusInputs[item.id] || ''}
+                              onChange={e => {
+                                let val = parseInt(e.target.value)
+                                if (isNaN(val)) val = 1
+                                if (val > item.jumlah_do) val = item.jumlah_do
+                                if (val < 1) val = 1
+                                setTebusInputs({ ...tebusInputs, [item.id]: val })
+                              }}
+                            />
+                          </div>
+                        )}
+                        <input 
+                          type="checkbox" 
+                          style={{ width: 20, height: 20, accentColor: '#16a34a', cursor: 'pointer' }}
+                          checked={checkedItems[item.id] || false}
+                          onChange={(e) => setCheckedItems({ ...checkedItems, [item.id]: e.target.checked })}
+                        />
+                      </div>
                     )}
-                  </label>
+                  </div>
                 ))}
               </div>
             </div>
@@ -397,8 +444,8 @@ export default function PenebusanPage() {
 
       {/* EXPORT MODAL */}
       {showExportModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowExportModal(false)} />
+        <div className="content-modal-overlay">
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowExportModal(false)} />
           
           <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 400, zIndex: 101, padding: 0 }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>

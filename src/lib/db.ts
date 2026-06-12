@@ -432,7 +432,6 @@ export async function createLaporanDO(spbe: string, items: Omit<LaporanDOItem, '
     throw errItems
   }
 
-  // Also log activity
   await logAktivitas({
     aksi: 'tambah',
     entitas: 'laporan_do',
@@ -442,6 +441,52 @@ export async function createLaporanDO(spbe: string, items: Omit<LaporanDOItem, '
   })
 
   return laporan
+}
+
+export async function updateLaporanDO(id: string, spbe: string, items: Omit<LaporanDOItem, 'id' | 'laporan_do_id' | 'created_at' | 'status_tebus'>[]) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Update SPBE in main table
+  const { error: errLaporan } = await supabase
+    .from('laporan_do')
+    .update({ spbe })
+    .eq('id', id)
+
+  if (errLaporan) throw errLaporan
+
+  // Delete existing items
+  await supabase
+    .from('laporan_do_items')
+    .delete()
+    .eq('laporan_do_id', id)
+
+  // Insert new items
+  const itemsToInsert = items.map(item => ({
+    laporan_do_id: id,
+    tanggal: item.tanggal,
+    alokasi: item.alokasi,
+    jumlah_do: item.jumlah_do,
+    jenis: item.jenis,
+    status_tebus: false
+  }))
+
+  const { error: errItems } = await supabase
+    .from('laporan_do_items')
+    .insert(itemsToInsert)
+
+  if (errItems) {
+    console.error('Failed to insert updated items:', errItems)
+    throw errItems
+  }
+
+  await logAktivitas({
+    aksi: 'edit',
+    entitas: 'laporan_do',
+    entitas_id: id,
+    entitas_nama: `DO ${spbe} (${items.length} item)`,
+    data_baru: { spbe, total_items: items.length }
+  })
 }
 
 export async function getLaporanDOList(spbeFilter?: string, start_date?: string, end_date?: string) {
@@ -484,15 +529,57 @@ export async function getLaporanDOItemsByLaporanId(laporan_id: string) {
   return data as LaporanDOItem[]
 }
 
-export async function updateStatusTebus(itemIds: string[], status_tebus: boolean) {
-  if (!itemIds.length) return
+export async function processPenebusan(
+  itemsToUpdate: { id: string, originalItem: LaporanDOItem, tebusDO: number, sisaDO: number }[]
+) {
+  if (!itemsToUpdate.length) return
   
-  const { error } = await supabase
-    .from('laporan_do_items')
-    .update({ status_tebus })
-    .in('id', itemIds)
+  for (const update of itemsToUpdate) {
+    if (update.sisaDO > 0 && update.tebusDO > 0) {
+      // Split necessary
+      const tabungPerDo = update.originalItem.alokasi / update.originalItem.jumlah_do
+      const tebusAlokasi = tabungPerDo * update.tebusDO
+      const sisaAlokasi = tabungPerDo * update.sisaDO
 
-  if (error) throw error
+      // Update original item to be the redeemed portion
+      const { error: err1 } = await supabase
+        .from('laporan_do_items')
+        .update({ 
+          jumlah_do: update.tebusDO, 
+          alokasi: tebusAlokasi, 
+          status_tebus: true 
+        })
+        .eq('id', update.id)
+      if (err1) throw err1
+
+      // Insert new item for the remainder
+      const { error: err2 } = await supabase
+        .from('laporan_do_items')
+        .insert({
+          laporan_do_id: update.originalItem.laporan_do_id,
+          tanggal: update.originalItem.tanggal,
+          alokasi: sisaAlokasi,
+          jumlah_do: update.sisaDO,
+          jenis: update.originalItem.jenis,
+          status_tebus: false
+        })
+      if (err2) throw err2
+    } else if (update.tebusDO > 0 && update.sisaDO === 0) {
+      // Fully redeemed
+      const { error } = await supabase
+        .from('laporan_do_items')
+        .update({ status_tebus: true })
+        .eq('id', update.id)
+      if (error) throw error
+    } else if (update.tebusDO === 0 && update.sisaDO > 0) {
+      // Unredeem / set false
+      const { error } = await supabase
+        .from('laporan_do_items')
+        .update({ status_tebus: false })
+        .eq('id', update.id)
+      if (error) throw error
+    }
+  }
 }
 
 export async function deleteLaporanDO(id: string) {

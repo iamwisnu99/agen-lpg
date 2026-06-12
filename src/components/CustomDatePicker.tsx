@@ -25,6 +25,7 @@ interface CustomDatePickerProps {
 
 export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal', className = '' }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isDropup, setIsDropup] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => value ? new Date(value) : new Date())
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -174,9 +175,16 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
   }
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${className}`} ref={containerRef} style={{ zIndex: isOpen ? 50 : 'auto' }}>
       <div 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          if (!isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect()
+            const spaceBelow = window.innerHeight - rect.bottom
+            setIsDropup(spaceBelow < 350) // Adjust dropdown direction
+          }
+          setIsOpen(!isOpen)
+        }}
         className="form-input"
         style={{ 
           display: 'flex', 
@@ -197,7 +205,7 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
         <div 
           style={{
             position: 'absolute',
-            top: 'calc(100% + 8px)',
+            ...(isDropup ? { bottom: 'calc(100% + 8px)' } : { top: 'calc(100% + 8px)' }),
             left: 0,
             zIndex: 50,
             background: 'var(--bg-surface)',
@@ -207,7 +215,7 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
             boxShadow: 'var(--shadow-lg)',
             width: 280
           }}
-          className="animate-in fade-in slide-in-from-top-2"
+          className={`animate-in fade-in ${isDropup ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2'}`}
         >
           {renderHeader()}
           {renderDays()}

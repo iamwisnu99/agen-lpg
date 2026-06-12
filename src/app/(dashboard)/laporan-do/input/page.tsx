@@ -2,16 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
-import { Plus, Save, FileText, X, Eye, Trash2, Search, ChevronLeft, ChevronRight, Calendar, TrendingUp, Package, Clock, BarChart3 } from 'lucide-react'
-import { getLaporanDOList, createLaporanDO, deleteLaporanDO } from '@/lib/db'
+import { Plus, Save, FileText, X, Eye, Trash2, Search, ChevronLeft, ChevronRight, Calendar, TrendingUp, Package, Clock, BarChart3, Edit3 } from 'lucide-react'
+import { getLaporanDOList, createLaporanDO, deleteLaporanDO, updateLaporanDO } from '@/lib/db'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import type { LaporanDO } from '@/types'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { CustomDatePicker } from '@/components/CustomDatePicker'
 import { CustomSelect } from '@/components/CustomSelect'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 export default function InputDOPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
   const { data: laporanList = [], mutate: fetchData, isLoading: loading } = useSWR<LaporanDO[]>('laporanDOList', () => getLaporanDOList(), {
     revalidateOnFocus: false,
     dedupingInterval: 5000,
@@ -20,12 +24,18 @@ export default function InputDOPage() {
   const [saving, setSaving] = useState(false)
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editModalId, setEditModalId] = useState<string | null>(null)
 
   // Form State
   const [spbe, setSpbe] = useState<'SADIKUN' | 'JAKPRO'>('SADIKUN')
-  const [items, setItems] = useState<Array<{ id: string, tanggal: string, alokasi: string, jenis: string }>>([
-    { id: '1', tanggal: new Date().toISOString().split('T')[0], alokasi: '', jenis: 'Normal' }
-  ])
+  
+  type FormItem = { id: string, tanggal: string, alokasiNormal: string, alokasiFakultatif: string }
+  const [itemsData, setItemsData] = useState<{ SADIKUN: FormItem[], JAKPRO: FormItem[] }>({
+    SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
+    JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+  })
+
+  const items = itemsData[spbe]
 
   // Filter & Pagination State
   const [filterSpbe, setFilterSpbe] = useState('Semua')
@@ -34,19 +44,51 @@ export default function InputDOPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 15
 
+  // Handle URL edit param
+  useEffect(() => {
+    const editId = searchParams?.get('edit')
+    if (editId && laporanList.length > 0 && !editModalId && !showModal) {
+      const laporan = laporanList.find(l => l.id === editId)
+      if (laporan) {
+        openEditModal(laporan)
+        // clean up URL
+        router.replace('/laporan-do/input', { scroll: false })
+      }
+    }
+  }, [searchParams, laporanList, editModalId, showModal, router])
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal || deleteModalId) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => { document.body.style.overflow = 'unset' }
+  }, [showModal, deleteModalId])
+
   // Fetching handled by useSWR
 
   const handleAddItem = () => {
-    setItems([...items, { id: Math.random().toString(), tanggal: new Date().toISOString().split('T')[0], alokasi: '', jenis: 'Normal' }])
+    setItemsData(prev => ({
+      ...prev,
+      [spbe]: [...prev[spbe], { id: Math.random().toString(), tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+    }))
   }
 
   const handleRemoveItem = (id: string) => {
     if (items.length === 1) return
-    setItems(items.filter(item => item.id !== id))
+    setItemsData(prev => ({
+      ...prev,
+      [spbe]: prev[spbe].filter(item => item.id !== id)
+    }))
   }
 
   const handleUpdateItem = (id: string, field: string, value: string) => {
-    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item))
+    setItemsData(prev => ({
+      ...prev,
+      [spbe]: prev[spbe].map(item => item.id === id ? { ...item, [field]: value } : item)
+    }))
   }
 
   const getJumlahDO = (alokasiStr: string) => {
@@ -56,31 +98,102 @@ export default function InputDOPage() {
   }
 
   const handleSave = async () => {
-    const invalidItems = items.some(i => !i.tanggal || !i.alokasi || parseInt(i.alokasi) <= 0)
-    if (invalidItems) {
-      toast.error('Mohon lengkapi semua baris (tanggal dan alokasi > 0)')
+    const sadikunValidItems = itemsData.SADIKUN.filter(i => parseInt(i.alokasiNormal || '0') > 0 || parseInt(i.alokasiFakultatif || '0') > 0)
+    const jakproValidItems = itemsData.JAKPRO.filter(i => parseInt(i.alokasiNormal || '0') > 0 || parseInt(i.alokasiFakultatif || '0') > 0)
+
+    if (sadikunValidItems.length === 0 && jakproValidItems.length === 0) {
+      toast.error('Mohon isi minimal 1 alokasi di SPBE manapun')
       return
     }
 
     setSaving(true)
     try {
-      const formattedItems = items.map(i => ({
-        tanggal: i.tanggal,
-        alokasi: parseInt(i.alokasi),
-        jumlah_do: getJumlahDO(i.alokasi),
-        jenis: i.jenis
-      }))
+      const formatItems = (itemArray: FormItem[]) => {
+        const formatted: any[] = []
+        itemArray.forEach(i => {
+          const norm = parseInt(i.alokasiNormal || '0')
+          const fakul = parseInt(i.alokasiFakultatif || '0')
+          
+          if (norm > 0) {
+            formatted.push({ tanggal: i.tanggal, alokasi: norm, jumlah_do: getJumlahDO(norm.toString()), jenis: 'Normal' })
+          }
+          if (fakul > 0) {
+            formatted.push({ tanggal: i.tanggal, alokasi: fakul, jumlah_do: getJumlahDO(fakul.toString()), jenis: 'Fakultatif' })
+          }
+        })
+        return formatted
+      }
+
+      if (editModalId) {
+        const formattedItems = formatItems(itemsData[spbe])
+        await updateLaporanDO(editModalId, spbe, formattedItems)
+        toast.success('Laporan DO berhasil diperbarui!')
+      } else {
+        if (sadikunValidItems.length > 0) {
+          await createLaporanDO('SADIKUN', formatItems(sadikunValidItems))
+        }
+        if (jakproValidItems.length > 0) {
+          await createLaporanDO('JAKPRO', formatItems(jakproValidItems))
+        }
+        toast.success('Laporan DO berhasil disimpan!')
+      }
       
-      await createLaporanDO(spbe, formattedItems)
-      toast.success('Laporan DO berhasil disimpan!')
       setShowModal(false)
+      setEditModalId(null)
       fetchData()
-      setItems([{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasi: '', jenis: 'Normal' }])
+      setItemsData({
+        SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
+        JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+      })
     } catch (err: any) {
       toast.error(err.message || 'Terjadi kesalahan saat menyimpan data')
     } finally {
       setSaving(false)
     }
+  }
+
+  const openEditModal = (laporan: LaporanDO) => {
+    setSpbe(laporan.spbe as any)
+    setEditModalId(laporan.id)
+    
+    // Group by date to combine Normal and Fakultatif
+    const dateMap: Record<string, { alokasiNormal: string, alokasiFakultatif: string }> = {}
+    laporan.items?.forEach(item => {
+      if (!dateMap[item.tanggal]) {
+        dateMap[item.tanggal] = { alokasiNormal: '0', alokasiFakultatif: '0' }
+      }
+      if (item.jenis === 'Normal') {
+        dateMap[item.tanggal].alokasiNormal = String(item.alokasi)
+      } else {
+        dateMap[item.tanggal].alokasiFakultatif = String(item.alokasi)
+      }
+    })
+
+    const newItems = Object.keys(dateMap).map(tanggal => ({
+      id: Math.random().toString(),
+      tanggal,
+      alokasiNormal: dateMap[tanggal].alokasiNormal,
+      alokasiFakultatif: dateMap[tanggal].alokasiFakultatif
+    }))
+
+    if (newItems.length === 0) {
+      newItems.push({ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' })
+    }
+
+    setItemsData(prev => ({
+      ...prev,
+      [laporan.spbe]: newItems
+    }))
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setEditModalId(null)
+    setItemsData({
+      SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
+      JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+    })
   }
 
   const confirmDelete = async () => {
@@ -281,6 +394,9 @@ export default function InputDOPage() {
                     <Link href={`/laporan-do/penebusan`} className="btn btn-ghost btn-icon" title="Lihat Penebusan">
                       <Eye size={16} />
                     </Link>
+                    <button className="btn btn-ghost btn-icon" onClick={() => openEditModal(laporan)} title="Edit" style={{ color: '#3b82f6' }}>
+                      <Edit3 size={16} />
+                    </button>
                     <button className="btn btn-ghost btn-icon" onClick={() => setDeleteModalId(laporan.id)} title="Hapus" style={{ color: '#ef4444' }}>
                       <Trash2 size={16} />
                     </button>
@@ -317,22 +433,23 @@ export default function InputDOPage() {
       </div>
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 16px', overflowY: 'auto' }}>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !saving && setShowModal(false)} />
+        <div className="content-modal-overlay">
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !saving && handleCloseModal()} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 800, zIndex: 101, padding: 0 }}>
+          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0 }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Plus size={20} color="#16a34a" /> Buat Input DO Baru
+                {editModalId ? <Edit3 size={20} color="#16a34a" /> : <Plus size={20} color="#16a34a" />} 
+                {editModalId ? 'Edit Input DO' : 'Buat Input DO Baru'}
               </h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => !saving && setShowModal(false)}>
+              <button className="btn btn-ghost btn-icon" onClick={() => !saving && handleCloseModal()}>
                 <X size={20} />
               </button>
             </div>
 
-            <div style={{ padding: 24, background: 'var(--bg-base)' }}>
+            <div style={{ padding: 24, background: 'var(--bg-base)', overflowY: 'auto', flex: 1 }}>
               {/* TABS */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 24, opacity: editModalId ? 0.5 : 1, pointerEvents: editModalId ? 'none' : 'auto' }}>
                 <button 
                   className={`btn ${spbe === 'SADIKUN' ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ flex: 1, background: spbe === 'SADIKUN' ? '#16a34a' : 'transparent' }}
@@ -352,7 +469,7 @@ export default function InputDOPage() {
               {/* DYNAMIC FORM */}
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12 }}>
                 {items.map((item, index) => (
-                  <div key={item.id} style={{ padding: 16, borderBottom: index < items.length - 1 ? '1px solid var(--border-default)' : 'none', position: 'relative', zIndex: items.length - index }}>
+                  <div key={item.id} style={{ padding: 16, borderBottom: index < items.length - 1 ? '1px solid var(--border-default)' : 'none', position: 'relative' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, alignItems: 'end' }}>
                       
                       <div>
@@ -365,36 +482,60 @@ export default function InputDOPage() {
                       </div>
 
                       <div>
-                        <label className="form-label" style={{ fontSize: 12 }}>Alokasi (Tabung)</label>
+                        <label className="form-label" style={{ fontSize: 12 }}>Alokasi Normal</label>
                         <input 
                           type="number" 
                           className="form-input" 
-                          placeholder="Misal: 560"
-                          value={item.alokasi}
-                          onChange={e => handleUpdateItem(item.id, 'alokasi', e.target.value)}
+                          value={item.alokasiNormal}
+                          onFocus={e => { if(e.target.value === '0') handleUpdateItem(item.id, 'alokasiNormal', '') }}
+                          onBlur={e => { if(e.target.value === '') handleUpdateItem(item.id, 'alokasiNormal', '0') }}
+                          onChange={e => handleUpdateItem(item.id, 'alokasiNormal', e.target.value)}
                         />
                       </div>
 
                       <div>
+                        <label className="form-label" style={{ fontSize: 12 }}>Alokasi Fakultatif</label>
+                        <input 
+                          type="number" 
+                          className="form-input" 
+                          value={item.alokasiFakultatif}
+                          onFocus={e => { if(e.target.value === '0') handleUpdateItem(item.id, 'alokasiFakultatif', '') }}
+                          onBlur={e => { if(e.target.value === '') handleUpdateItem(item.id, 'alokasiFakultatif', '0') }}
+                          onChange={e => handleUpdateItem(item.id, 'alokasiFakultatif', e.target.value)}
+                        />
+                      </div>
+
+                      <div style={{ gridColumn: '1 / -1' }}>
                         <label className="form-label" style={{ fontSize: 12 }}>Jumlah DO (Otomatis)</label>
                         <div style={{ 
-                          height: 42, display: 'flex', alignItems: 'center', padding: '0 16px', 
-                          background: 'var(--bg-muted)', borderRadius: 10, fontWeight: 700, color: '#16a34a' 
+                          minHeight: 42, display: 'flex', alignItems: 'center', padding: '8px 16px', gap: 16,
+                          background: 'var(--bg-muted)', borderRadius: 10, fontWeight: 600, color: 'var(--text-primary)', flexWrap: 'wrap'
                         }}>
-                          {getJumlahDO(item.alokasi)} DO
-                        </div>
-                      </div>
+                          {(() => {
+                            const normalDO = parseInt(item.alokasiNormal || '0') > 0 ? getJumlahDO(item.alokasiNormal) : 0
+                            const fakulDO = parseInt(item.alokasiFakultatif || '0') > 0 ? getJumlahDO(item.alokasiFakultatif) : 0
+                            const totalDO = normalDO + fakulDO
 
-                      <div>
-                        <label className="form-label" style={{ fontSize: 12 }}>Jenis</label>
-                        <CustomSelect 
-                          value={item.jenis}
-                          onChange={val => handleUpdateItem(item.id, 'jenis', val as string)}
-                          options={[
-                            { value: 'Normal', label: 'Normal' },
-                            { value: 'Fakultatif', label: 'Fakultatif' }
-                          ]}
-                        />
+                            return (
+                              <>
+                                {normalDO > 0 && (
+                                  <span style={{ color: '#16a34a' }}>Normal: {normalDO} DO ({item.alokasiNormal})</span>
+                                )}
+                                {fakulDO > 0 && (
+                                  <span style={{ color: '#f59e0b' }}>Fakultatif: {fakulDO} DO ({item.alokasiFakultatif})</span>
+                                )}
+                                {totalDO === 0 && (
+                                  <span style={{ color: 'var(--text-muted)' }}>0 DO</span>
+                                )}
+                                {totalDO > 0 && (
+                                  <span style={{ color: 'var(--text-primary)', fontWeight: 800, marginLeft: 'auto', borderLeft: '1px solid var(--border-default)', paddingLeft: 16 }}>
+                                    Total: {totalDO} DO
+                                  </span>
+                                )}
+                              </>
+                            )
+                          })()}
+                        </div>
                       </div>
 
                     </div>
@@ -421,7 +562,7 @@ export default function InputDOPage() {
             </div>
 
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-default)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'var(--bg-surface)', borderBottomLeftRadius: 'inherit', borderBottomRightRadius: 'inherit' }}>
-              <button className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>Batal</button>
+              <button className="btn btn-secondary" onClick={() => handleCloseModal()} disabled={saving}>Batal</button>
               <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? 'Menyimpan...' : <><Save size={16} /> Simpan Laporan DO</>}
               </button>
