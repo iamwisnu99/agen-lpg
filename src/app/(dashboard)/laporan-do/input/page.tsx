@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import useSWR from 'swr'
 import { Plus, Save, FileText, X, Eye, Trash2, Search, ChevronLeft, ChevronRight, Calendar, TrendingUp, Package, Clock, BarChart3, Edit3 } from 'lucide-react'
 import { getLaporanDOList, createLaporanDO, deleteLaporanDO, updateLaporanDO } from '@/lib/db'
@@ -12,7 +12,7 @@ import { CustomDatePicker } from '@/components/CustomDatePicker'
 import { CustomSelect } from '@/components/CustomSelect'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-export default function InputDOPage() {
+function InputDOContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
@@ -581,5 +581,13 @@ export default function InputDOPage() {
         onCancel={() => setDeleteModalId(null)}
       />
     </div>
+  )
+}
+
+export default function InputDOPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data...</div>}>
+      <InputDOContent />
+    </Suspense>
   )
 }
