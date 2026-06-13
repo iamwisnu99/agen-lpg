@@ -21,6 +21,7 @@ function InputDOContent() {
     dedupingInterval: 5000,
   })
   const [showModal, setShowModal] = useState(false)
+  const [modalClosing, setModalClosing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -138,13 +139,17 @@ function InputDOContent() {
         toast.success('Laporan DO berhasil disimpan!')
       }
       
-      setShowModal(false)
-      setEditModalId(null)
-      fetchData()
-      setItemsData({
-        SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
-        JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
-      })
+      setModalClosing(true)
+      setTimeout(() => {
+        setShowModal(false)
+        setModalClosing(false)
+        setEditModalId(null)
+        fetchData()
+        setItemsData({
+          SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
+          JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+        })
+      }, 200)
     } catch (err: any) {
       toast.error(err.message || 'Terjadi kesalahan saat menyimpan data')
     } finally {
@@ -188,12 +193,16 @@ function InputDOContent() {
   }
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditModalId(null)
-    setItemsData({
-      SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
-      JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
-    })
+    setModalClosing(true)
+    setTimeout(() => {
+      setShowModal(false)
+      setModalClosing(false)
+      setEditModalId(null)
+      setItemsData({
+        SADIKUN: [{ id: '1', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }],
+        JAKPRO: [{ id: '2', tanggal: new Date().toISOString().split('T')[0], alokasiNormal: '0', alokasiFakultatif: '0' }]
+      })
+    }, 200)
   }
 
   const confirmDelete = async () => {
@@ -432,11 +441,12 @@ function InputDOContent() {
         )}
       </div>
 
-      {showModal && (
-        <div className="content-modal-overlay">
+      {/* MODAL INPUT DO */}
+      {(showModal || modalClosing) && (
+        <div className={`content-modal-overlay ${modalClosing ? 'modal-overlay-exit' : 'modal-overlay-enter'}`}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !saving && handleCloseModal()} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0 }}>
+          <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0 }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {editModalId ? <Edit3 size={20} color="#16a34a" /> : <Plus size={20} color="#16a34a" />} 

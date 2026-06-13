@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   format, 
   addMonths, 
@@ -25,7 +26,7 @@ interface CustomDatePickerProps {
 
 export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal', className = '' }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [isDropup, setIsDropup] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number, bottom?: number, left: number, isDropup: boolean } | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => value ? new Date(value) : new Date())
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -34,12 +35,30 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+        // Also check if the click is inside the portal dropdown. The dropdown has a specific id or we can check closest
+        if (!(event.target as Element).closest('.date-picker-dropdown')) {
+          setIsOpen(false)
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    
+    // Close on scroll to prevent detached dropdowns
+    const handleScroll = (e: Event) => {
+      // Don't close if scrolling inside the dropdown itself
+      if (!(e.target as Element).closest?.('.date-picker-dropdown')) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      window.addEventListener('scroll', handleScroll, true)
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [isOpen])
 
   const handleDateClick = (day: Date) => {
     onChange(format(day, 'yyyy-MM-dd'))
@@ -181,7 +200,13 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
           if (!isOpen && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect()
             const spaceBelow = window.innerHeight - rect.bottom
-            setIsDropup(spaceBelow < 350) // Adjust dropdown direction
+            const dropup = spaceBelow < 350
+            setDropdownPos({
+              left: rect.left,
+              top: dropup ? undefined : rect.bottom + 8,
+              bottom: dropup ? window.innerHeight - rect.top + 8 : undefined,
+              isDropup: dropup
+            })
           }
           setIsOpen(!isOpen)
         }}
@@ -201,13 +226,15 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
         </span>
       </div>
 
-      {isOpen && (
+      {isOpen && dropdownPos && createPortal(
         <div 
+          className={`date-picker-dropdown animate-in fade-in ${dropdownPos.isDropup ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2'}`}
           style={{
-            position: 'absolute',
-            ...(isDropup ? { bottom: 'calc(100% + 8px)' } : { top: 'calc(100% + 8px)' }),
-            left: 0,
-            zIndex: 50,
+            position: 'fixed',
+            top: dropdownPos.top,
+            bottom: dropdownPos.bottom,
+            left: dropdownPos.left,
+            zIndex: 9999,
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-default)',
             borderRadius: 12,
@@ -215,7 +242,6 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
             boxShadow: 'var(--shadow-lg)',
             width: 280
           }}
-          className={`animate-in fade-in ${isDropup ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2'}`}
         >
           {renderHeader()}
           {renderDays()}
@@ -235,7 +261,8 @@ export function CustomDatePicker({ value, onChange, placeholder = 'Pilih Tanggal
               Pilih Hari Ini
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

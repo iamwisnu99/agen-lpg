@@ -755,9 +755,27 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.animate-fade-in { animation: fadeIn 0.3s ease backwards; }
-.animate-slide-in { animation: slideIn 0.3s ease backwards; }
+@keyframes scaleOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.animate-fade-in { animation: fadeIn 0.2s ease backwards; }
+.animate-slide-in { animation: slideIn 0.2s ease backwards; }
 .animate-scale-in { animation: scaleIn 0.2s ease backwards; }
+
+.animate-fade-out { animation: fadeOut 0.2s ease forwards; }
+.animate-scale-out { animation: scaleOut 0.2s ease forwards; }
+
+.modal-overlay-enter { animation: fadeIn 0.2s ease backwards; }
+.modal-overlay-enter .card { animation: scaleIn 0.2s ease backwards; }
+.modal-overlay-exit { animation: fadeOut 0.2s ease forwards; }
+.modal-overlay-exit .card { animation: scaleOut 0.2s ease forwards; }
 
 /* Stagger children */
 .stagger-children > * {

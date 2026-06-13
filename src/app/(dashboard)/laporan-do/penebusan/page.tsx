@@ -32,6 +32,7 @@ export default function PenebusanPage() {
 
   // Export State
   const [showExportModal, setShowExportModal] = useState(false)
+  const [closingModal, setClosingModal] = useState<'view' | 'tebus' | 'export' | null>(null)
   const [exportSpbe, setExportSpbe] = useState<'Semua' | 'SADIKUN' | 'JAKPRO'>('Semua')
   const [exportPeriode, setExportPeriode] = useState<string>('Bulanan')
 
@@ -66,6 +67,30 @@ export default function PenebusanPage() {
     setTebusModalData(laporan)
   }
 
+  const handleCloseView = () => {
+    setClosingModal('view')
+    setTimeout(() => {
+      setViewModalData(null)
+      setClosingModal(null)
+    }, 200)
+  }
+
+  const handleCloseTebus = () => {
+    setClosingModal('tebus')
+    setTimeout(() => {
+      setTebusModalData(null)
+      setClosingModal(null)
+    }, 200)
+  }
+
+  const handleCloseExport = () => {
+    setClosingModal('export')
+    setTimeout(() => {
+      setShowExportModal(false)
+      setClosingModal(null)
+    }, 200)
+  }
+
   const handleSaveTebus = async () => {
     if (!tebusModalData) return
     setSavingTebus(true)
@@ -87,7 +112,7 @@ export default function PenebusanPage() {
       await processPenebusan(itemsToUpdate)
 
       toast.success('Status penebusan berhasil diperbarui')
-      setTebusModalData(null)
+      handleCloseTebus()
       fetchData()
     } catch (err) {
       toast.error('Gagal memperbarui status penebusan')
@@ -98,12 +123,12 @@ export default function PenebusanPage() {
 
   const handleExportExcel = () => {
     exportLaporanDOExcel(laporanList, exportSpbe, exportPeriode)
-    setShowExportModal(false)
+    handleCloseExport()
   }
 
   const handleExportPDF = () => {
     exportLaporanDOPDF(laporanList, exportSpbe, exportPeriode)
-    setShowExportModal(false)
+    handleCloseExport()
   }
 
   const confirmDelete = async () => {
@@ -326,15 +351,15 @@ export default function PenebusanPage() {
       </div>
 
       {viewModalData && (
-        <div className="content-modal-overlay">
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setViewModalData(null)} />
+        <div className={`content-modal-overlay ${closingModal === 'view' ? 'modal-overlay-exit' : 'modal-overlay-enter'}`}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={handleCloseView} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Eye size={20} color="#16a34a" /> Detail DO - SPBE {viewModalData.spbe}
               </h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setViewModalData(null)}><X size={20} /></button>
+              <button className="btn btn-ghost btn-icon" onClick={handleCloseView}><X size={20} /></button>
             </div>
             <div style={{ padding: 24, background: 'var(--bg-base)', overflowY: 'auto', flex: 1 }}>
               <div style={{ overflowX: 'auto' }}>
@@ -369,15 +394,15 @@ export default function PenebusanPage() {
       )}
 
       {tebusModalData && (
-        <div className="content-modal-overlay">
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !savingTebus && setTebusModalData(null)} />
+        <div className={`content-modal-overlay ${closingModal === 'tebus' ? 'modal-overlay-exit' : 'modal-overlay-enter'}`}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => !savingTebus && handleCloseTebus()} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 101, padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <CheckSquare size={20} color="#16a34a" /> Proses Penebusan DO
               </h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => !savingTebus && setTebusModalData(null)}><X size={20} /></button>
+              <button className="btn btn-ghost btn-icon" onClick={() => !savingTebus && handleCloseTebus()}><X size={20} /></button>
             </div>
             
             <div style={{ padding: 24, background: 'var(--bg-base)', overflowY: 'auto', flex: 1 }}>
@@ -433,7 +458,7 @@ export default function PenebusanPage() {
             </div>
 
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-default)', display: 'flex', justifyContent: 'flex-end', gap: 12, background: 'var(--bg-surface)' }}>
-              <button className="btn btn-secondary" onClick={() => setTebusModalData(null)} disabled={savingTebus}>Batal</button>
+              <button className="btn btn-secondary" onClick={() => handleCloseTebus()} disabled={savingTebus}>Batal</button>
               <button className="btn btn-primary" onClick={handleSaveTebus} disabled={savingTebus}>
                 {savingTebus ? 'Menyimpan...' : <><Save size={16} /> Simpan Status</>}
               </button>
@@ -444,15 +469,15 @@ export default function PenebusanPage() {
 
       {/* EXPORT MODAL */}
       {showExportModal && (
-        <div className="content-modal-overlay">
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowExportModal(false)} />
+        <div className={`content-modal-overlay ${closingModal === 'export' ? 'modal-overlay-exit' : 'modal-overlay-enter'}`}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={handleCloseExport} />
           
-          <div className="card animate-scale-in" style={{ position: 'relative', width: '100%', maxWidth: 400, zIndex: 101, padding: 0 }}>
+          <div className="card" style={{ position: 'relative', width: '100%', maxWidth: 400, zIndex: 101, padding: 0 }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FileSpreadsheet size={20} color="#16a34a" /> Export Laporan DO
               </h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowExportModal(false)}><X size={20} /></button>
+              <button className="btn btn-ghost btn-icon" onClick={handleCloseExport}><X size={20} /></button>
             </div>
 
             <div style={{ padding: 24, background: 'var(--bg-base)' }}>
