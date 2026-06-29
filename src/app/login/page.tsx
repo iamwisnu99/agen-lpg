@@ -42,8 +42,12 @@ export default function LoginPage() {
       toast.success('Login berhasil! Selamat datang.')
       router.push('/dashboard')
       router.refresh()
-    } catch {
-      toast.error('Terjadi kesalahan. Coba lagi.')
+    } catch (err: any) {
+      if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        toast.error('Gagal terhubung ke server. Periksa koneksi internet Anda.')
+      } else {
+        toast.error('Terjadi kesalahan. Coba lagi.')
+      }
     } finally {
       setLoading(false)
     }

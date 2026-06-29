@@ -40,7 +40,8 @@ const navItems: NavItem[] = [
     icon: FileText,
     subItems: [
       { label: 'Input DO', href: '/laporan-do/input' },
-      { label: 'Penebusan', href: '/laporan-do/penebusan' }
+      { label: 'Penebusan', href: '/laporan-do/penebusan' },
+      { label: 'Perencanaan', href: '/laporan-do/perencanaan' }
     ]
   },
   { label: 'Log Aktivitas', href: '/aktivitas', icon: ClipboardList },
